@@ -10,7 +10,7 @@ publish = false
 async-trait = "0.1.53"
 clap = "3.1"
 hex = "0.4.0"
-log = "0.4.14"
+log = "0.4.17"
 pubsys-config = { path = "../pubsys-config/", version = "0.1.0" }
 rusoto_cloudformation = { version = "0.48.0", default-features = false, features = ["rustls"] }
 rusoto_core = { version = "0.48.0", default-features = false, features = ["rustls"] }
