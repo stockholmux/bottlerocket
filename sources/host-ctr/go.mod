@@ -3,7 +3,7 @@ module host-ctr
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.28
+	github.com/aws/aws-sdk-go v1.44.36
 	github.com/awslabs/amazon-ecr-containerd-resolver v0.0.0-20220426174721-15a0f71b6577
 	github.com/containerd/containerd v1.6.6
 	github.com/opencontainers/runtime-spec v1.0.3-0.20220601164019-72c1f0b44f79

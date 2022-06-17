@@ -113,8 +113,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkY
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/aws/aws-sdk-go v1.15.11/go.mod h1:mFuSZ37Z9YOHbQEwBWztmVzqXrEkub65tZoCYDt7FT0=
 github.com/aws/aws-sdk-go v1.32.13/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
-github.com/aws/aws-sdk-go v1.44.28 h1:h/OAqEqY18wq//v6h4GNPMmCkxuzSDrWuGyrvSiRqf4=
-github.com/aws/aws-sdk-go v1.44.28/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
+github.com/aws/aws-sdk-go v1.44.36 h1:zeHQau9fGEIE0CsBnQFCqqYWc98m2bk7BQKtkdEqzF4=
+github.com/aws/aws-sdk-go v1.44.36/go.mod h1:y4AeaBuwd2Lk+GepC1E9v0qOiTws0MIWAX4oIKwKHZo=
 github.com/awslabs/amazon-ecr-containerd-resolver v0.0.0-20220426174721-15a0f71b6577 h1:RNZHx9wrV/9yUHcY9Kh7JMj57sq1smXAWR3+5hcGjIQ=
 github.com/awslabs/amazon-ecr-containerd-resolver v0.0.0-20220426174721-15a0f71b6577/go.mod h1:l5wYq19R5O5H/pMIaTOTkBGjxhqSP95N/qN2DZxLRVQ=
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
