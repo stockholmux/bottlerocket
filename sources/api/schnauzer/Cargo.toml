@@ -15,7 +15,7 @@ base64 = "0.13"
 constants = { path = "../../constants", version = "0.1.0" }
 bottlerocket-release = { path = "../../bottlerocket-release", version = "0.1.0" }
 dns-lookup = "1.0"
-handlebars = "4.1"
+handlebars = "4.3"
 http = "0.2"
 lazy_static = "1.4"
 log = "0.4"
