@@ -13,8 +13,8 @@ body:
       options:
         - Using Bottlerocket
         - Developing Bottlerocket
-      validations:
-        required: true
+    validations:
+      required: true
   - type: input
     id: url
     attributes:
