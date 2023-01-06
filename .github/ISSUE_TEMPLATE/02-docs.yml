@@ -1,6 +1,6 @@
 name: Documentation Bug
 labels: ["status/needs-triage", "type/documentation"]
-description: Let us know about a problem with Bottlerocket's documentation.
+description: Report an issue with Bottlerocket's documentation.
 body:
   - type: markdown
     attributes:

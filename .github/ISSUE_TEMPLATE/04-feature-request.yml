@@ -1,6 +1,6 @@
 name: Feature Request
 labels: ["status/needs-triage", "type/enhancement"]
-description: Let us know about a problem in the build process of Bottlerocket
+description: Request a feature you'd like in Bottlerocket
 body:
   - type: markdown
     attributes:

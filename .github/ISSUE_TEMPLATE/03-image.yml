@@ -1,11 +1,11 @@
-name: Build Process Bug
+name: Image Bug
 labels: ["status/needs-triage", "type/bug"]
-description: Let us know about a problem in the build process of Bottlerocket
+description: Report a problem with a Bottlerocket image
 body:
   - type: markdown
     attributes:
       value: |
-        This bug report form is for **build process issues** with Bottlerocket. 
+        This bug report form is for **general issues** with Bottlerocket. 
         
         A few tips before submitting a new issue:
         - Search for similar issues, including [closed issues](https://github.com/bottlerocket-os/bottlerocket/issues?q=is%3Aissue+is%3Aclosed),
@@ -49,4 +49,12 @@ body:
       render: bash
     validations:
       required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: About your environment
+      render: bash
+    validations:
+      required: false
+
 

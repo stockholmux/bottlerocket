@@ -1,6 +1,6 @@
 name: General Bug
 labels: ["status/needs-triage", "type/bug"]
-description: Let us know about a problem with Bottlerocket
+description: Report a general problem with Bottlerocket
 body:
   - type: markdown
     attributes:
