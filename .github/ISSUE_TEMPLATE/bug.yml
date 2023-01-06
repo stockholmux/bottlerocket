@@ -18,11 +18,10 @@ body:
         - vmware-k8s
         - metal-k8s
         - Custom variant
-        - N/A
   - type: input
     id: variant-orchestrator-version
     attributes:
-      label: Orchestrator Version
+      label: Orchestrator version
       description: For k8s variants, this is your version of Kubernetes. For ECS this is likely "1"
   - type: textarea
     id: expect
