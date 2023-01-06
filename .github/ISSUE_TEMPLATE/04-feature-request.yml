@@ -26,14 +26,6 @@ body:
       required: true
   - type: dropdown
     attributes:
-      label: Version
-      description: What version of our software are you running?
-      multiple: false
-      options:
-        - 1.0.2 (Default)
-        - 1.0.3 (Edge)
-  - type: dropdown
-    attributes:
       label: Participation
       description: How would you like to participate in developing this feature?
       multiple: false
