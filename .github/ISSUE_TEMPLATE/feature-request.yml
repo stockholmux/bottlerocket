@@ -18,16 +18,17 @@ body:
     validations:
       required: true
   - type: textarea
-    id: like
+    id: alternatives
     attributes:
       label: Any alternatives you've considered
       render: bash
     validations:
       required: true
-  - type: checkboxes
+  - type: dropdown
     id: collaborate
     attributes:
-      label: How would you like this feature to be developed?
+      label: How would you like to participate in developing this feature?
+      multiple: false
       options:
         - label: I'm willing to fully contribute the code for this feature
         - label: I'm willing to collaborate with the team for this feature
