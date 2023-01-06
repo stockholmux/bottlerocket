@@ -26,13 +26,21 @@ body:
       required: true
   - type: dropdown
     attributes:
+      label: Version
+      description: What version of our software are you running?
+      multiple: false
+      options:
+        - label: 1.0.2 (Default)
+        - label: 1.0.3 (Edge)
+  - type: dropdown
+    attributes:
       label: Participation
       description: How would you like to participate in developing this feature?
       multiple: false
       options:
-        - label: "I'm willing to fully contribute the code for this feature"
-        - label: "I'm willing to collaborate with the team for this feature"
-        - label: "I cannot contribute the code for this feature"
+        - I'm willing to fully contribute the code for this feature
+        - I'm willing to collaborate with the team for this feature
+        - I cannot contribute the code for this feature
     validations:
       required: true
 
