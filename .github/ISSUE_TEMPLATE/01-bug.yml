@@ -14,6 +14,7 @@ body:
   - type: dropdown
     id: variant
     attributes:
+      description: Variant information can be found by running `apiclient get os` from the control container.
       label: Variant
       options:
         - aws-k8s-1.21
