@@ -1,10 +1,10 @@
 //! The `v1` module contains the first version of the network configuration and implements the
 //! appropriate traits.
 
-use super::{error, Dhcp4ConfigV1, Dhcp6ConfigV1, Error, Interfaces, Result, Validate};
+use super::{error, Error, Interfaces, Result, Validate};
+use crate::addressing::{Dhcp4ConfigV1, Dhcp4OptionsV1, Dhcp6ConfigV1, Dhcp6OptionsV1};
 use crate::{
-    interface_name::InterfaceName,
-    net_config::{Dhcp4OptionsV1, Dhcp6OptionsV1},
+    interface_id::{InterfaceId, InterfaceName},
     wicked::{WickedDhcp4, WickedDhcp6, WickedInterface},
 };
 use indexmap::indexmap;
@@ -38,12 +38,12 @@ pub(crate) struct NetInterfaceV1 {
 }
 
 impl Interfaces for NetConfigV1 {
-    fn primary_interface(&self) -> Option<String> {
+    fn primary_interface(&self) -> Option<InterfaceId> {
         self.interfaces
             .iter()
             .find(|(_, v)| v.primary == Some(true))
             .or_else(|| self.interfaces.first())
-            .map(|(n, _)| n.to_string())
+            .map(|(n, _)| InterfaceId::from(n.clone()))
     }
 
     fn has_interfaces(&self) -> bool {

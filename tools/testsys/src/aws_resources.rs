@@ -2,13 +2,14 @@ use crate::crds::BottlerocketInput;
 use crate::error::{self, Result};
 use aws_sdk_ec2::model::{Filter, Image};
 use aws_sdk_ec2::Region;
-use bottlerocket_types::agent_config::{ClusterType, Ec2Config};
+use bottlerocket_types::agent_config::{ClusterType, CustomUserData, Ec2Config};
 use maplit::btreemap;
-use model::{DestructionPolicy, Resource};
 use serde::Deserialize;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fs::File;
+use std::iter::repeat_with;
+use testsys_model::{DestructionPolicy, Resource};
 
 /// Get the AMI for the given `region` from the `ami_input` file.
 pub(crate) fn ami(ami_input: &str, region: &str) -> Result<String> {
@@ -37,7 +38,12 @@ pub(crate) fn ami(ami_input: &str, region: &str) -> Result<String> {
 }
 
 /// Queries EC2 for the given AMI name. If found, returns Ok(Some(id)), if not returns Ok(None).
-pub(crate) async fn get_ami_id<S1, S2, S3>(name: S1, arch: S2, region: S3) -> Result<String>
+pub(crate) async fn get_ami_id<S1, S2, S3>(
+    name: S1,
+    arch: S2,
+    region: S3,
+    account: Option<&str>,
+) -> Result<String>
 where
     S1: Into<String>,
     S2: Into<String>,
@@ -53,7 +59,7 @@ where
     // Find all images named `name` on `arch` in the `region`.
     let describe_images = ec2_client
         .describe_images()
-        .owners("self")
+        .owners(account.unwrap_or("self"))
         .filters(Filter::builder().name("name").values(name).build())
         .filters(
             Filter::builder()
@@ -145,6 +151,12 @@ pub(crate) async fn ec2_crd<'a>(
                 .cloned()
                 .collect(),
         )
+        .custom_user_data(
+            bottlerocket_input
+                .crd_input
+                .encoded_userdata()?
+                .map(|encoded_userdata| CustomUserData::Merge { encoded_userdata }),
+        )
         .cluster_name_template(cluster_name, "clusterName")
         .region_template(cluster_name, "region")
         .instance_profile_arn_template(cluster_name, "iamInstanceProfileArn")
@@ -169,7 +181,15 @@ pub(crate) async fn ec2_crd<'a>(
         .set_labels(Some(labels))
         .set_conflicts_with(conflicting_resources.into())
         .set_secrets(Some(bottlerocket_input.crd_input.config.secrets.clone()))
-        .destruction_policy(DestructionPolicy::OnTestSuccess);
+        .destruction_policy(
+            bottlerocket_input
+                .crd_input
+                .config
+                .dev
+                .bottlerocket_destruction_policy
+                .to_owned()
+                .unwrap_or(DestructionPolicy::OnTestSuccess),
+        );
 
     // Add in the EKS specific configuration.
     if cluster_type == ClusterType::Eks {
@@ -189,13 +209,10 @@ pub(crate) async fn ec2_crd<'a>(
             .security_groups(Vec::new());
     }
 
+    let suffix: String = repeat_with(fastrand::lowercase).take(4).collect();
     ec2_builder
-        .build(format!(
-            "{}-instances-{}",
-            cluster_name, bottlerocket_input.test_type
-        ))
-        .map_err(|e| error::Error::Build {
-            what: "EC2 instance provider CRD".to_string(),
-            error: e.to_string(),
+        .build(format!("{}-instances-{}", cluster_name, suffix))
+        .context(error::BuildSnafu {
+            what: "EC2 instance provider CRD",
         })
 }

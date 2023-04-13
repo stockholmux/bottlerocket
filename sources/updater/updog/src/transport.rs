@@ -31,7 +31,7 @@ impl QueryParams {
         url
     }
 
-    pub(crate) fn add<S1, S2>(&self, key: S1, val: S2) -> ()
+    pub(crate) fn add<S1, S2>(&self, key: S1, val: S2)
     where
         S1: Into<String>,
         S2: Into<String>,
@@ -49,7 +49,7 @@ impl QueryParams {
             }
             Ok(lock_result) => lock_result,
         };
-        params.push((key.into(), val.into()))
+        params.push((key.into(), val.into()));
     }
 }
 
@@ -71,7 +71,7 @@ impl Transport for HttpQueryTransport {
     fn fetch(
         &self,
         url: Url,
-    ) -> std::result::Result<Box<dyn std::io::Read + Send>, TransportError> {
+    ) -> std::result::Result<Box<dyn std::io::Read + Send + '_>, TransportError> {
         self.inner.fetch(self.parameters.add_params_to_url(url))
     }
 }

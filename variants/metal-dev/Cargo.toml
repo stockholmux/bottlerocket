@@ -1,7 +1,7 @@
 [package]
 name = "metal-dev"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 publish = false
 build = "build.rs"
 # Don't rebuild crate just because of changes to README.
@@ -12,6 +12,7 @@ partition-plan = "unified"
 
 [package.metadata.build-variant.image-features]
 grub-set-private-var = true
+unified-cgroup-hierarchy = true
 
 [package.metadata.build-variant]
 image-format = "raw"

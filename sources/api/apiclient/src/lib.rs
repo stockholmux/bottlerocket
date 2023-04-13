@@ -1,5 +1,3 @@
-#![deny(rust_2018_idioms)]
-
 //! The apiclient library provides high-level methods to interact with the Bottlerocket API.  See
 //! the documentation for submodules [`apply`], [`exec`], [`get`], [`reboot`], [`set`], and
 //! [`update`] for high-level helpers.
@@ -130,7 +128,7 @@ where
         .method(method)
         .uri(&uri)
         .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(request_data))
+        .body(request_data)
         .context(error::RequestSetupSnafu)?;
 
     // Send request.

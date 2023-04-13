@@ -17,8 +17,6 @@ will create an IMDSv2 session _(if one does not already exist)_ and send a reque
 The result is returned as a `String` _(ex. m5.large)_.
 */
 
-#![deny(rust_2018_idioms)]
-
 use std::sync::RwLock;
 
 use http::StatusCode;
@@ -165,6 +163,12 @@ impl ImdsClient {
     /// Gets the instance-id from instance metadata.
     pub async fn fetch_instance_id(&mut self) -> Result<Option<String>> {
         let instance_type_target = "meta-data/instance-id";
+        self.fetch_string(&instance_type_target).await
+    }
+
+    /// Get lifecycle state from instance metadata.
+    pub async fn fetch_autoscaling_lifecycle_state(&mut self) -> Result<Option<String>> {
+        let instance_type_target = "meta-data/autoscaling/target-lifecycle-state";
         self.fetch_string(&instance_type_target).await
     }
 

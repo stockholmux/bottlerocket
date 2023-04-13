@@ -2,7 +2,7 @@
 %global __brp_check_rpaths %{nil}
 
 Name: %{_cross_os}systemd
-Version: 250.4
+Version: 250.11
 Release: 1%{?dist}
 Summary: System and Service Manager
 License: GPL-2.0-or-later AND GPL-2.0-only AND LGPL-2.1-or-later
@@ -13,11 +13,27 @@ Source2: systemd-modules-load.conf
 Source3: journald.conf
 Source4: issue
 
-# Add fix for glibc 2.36+
-Patch0001: 0001-glibc-Remove-include-linux-fs.h-to-resolve-fsconfig_.patch
-
-# Upstream patch for CVE-2022-3821
-Patch0002: 0002-time-util-fix-buffer-over-run.patch
+# Backports for fixing udev skipping kernel uevents under special circumstances
+#  * https://github.com/systemd/systemd/commit/2d40f02ee4317233365f53c85234be3af6b000a6
+#  * https://github.com/systemd/systemd/pull/22717
+#  * https://github.com/systemd/systemd/commit/400e3d21f8cae53a8ba9f9567f244fbf6f3e076c
+#  * https://github.com/systemd/systemd/commit/4f294ffdf18ab9f187400dbbab593a980e60be89
+#  * https://github.com/systemd/systemd/commit/c02fb80479b23e70f4ad6f7717eec5c9444aa7f4
+# From v251:
+Patch0001: 0001-errno-util-add-ERRNO_IS_DEVICE_ABSENT-macro.patch
+Patch0002: 0002-udev-drop-unnecessary-clone-of-received-sd-device-ob.patch
+Patch0003: 0003-udev-introduce-device_broadcast-helper-function.patch
+Patch0004: 0004-udev-assume-there-is-no-blocker-when-failed-to-check.patch
+Patch0005: 0005-udev-store-action-in-struct-Event.patch
+Patch0006: 0006-udev-requeue-event-when-the-corresponding-block-devi.patch
+Patch0007: 0007-udev-only-ignore-ENOENT-or-friends-which-suggest-the.patch
+Patch0008: 0008-udev-split-worker_lock_block_device-into-two.patch
+Patch0009: 0009-udev-assume-block-device-is-not-locked-when-a-new-ev.patch
+#  From v252:
+Patch0010: 0010-udev-fix-inversed-inequality-for-timeout-of-retrying.patch
+Patch0011: 0011-udev-certainly-restart-event-for-previously-locked-d.patch
+#  From v251:
+Patch0012: 0012-udev-try-to-reload-selinux-label-database-less-frequ.patch
 
 # Local patch to work around the fact that /var is a bind mount from
 # /local/var, and we want the /local/var/run symlink to point to /run.
@@ -57,6 +73,10 @@ Patch9010: 9010-sysusers-set-root-shell-to-sbin-nologin.patch
 
 # Local patch to keep modprobe units running to avoid repeated log entries.
 Patch9011: 9011-units-keep-modprobe-service-units-running.patch
+
+# Local patch to split the systemd-networkd tmpfiles into a separate file which
+# allows us to exclude them when not using networkd.
+Patch9012: 9012-tmpfiles-Split-networkd-entries-into-a-separate-file.patch
 
 BuildRequires: gperf
 BuildRequires: intltool
@@ -101,6 +121,12 @@ Requires: %{name}
 %description devel
 %{summary}.
 
+%package networkd
+Summary: Files for networkd
+
+%description networkd
+%{summary}.
+
 %prep
 %autosetup -n systemd-stable-%{version} -p1
 
@@ -129,7 +155,7 @@ CONFIGURE_OPTS=(
  -Dhibernate=false
  -Dldconfig=true
  -Dresolve=false
- -Defi=false
+ -Defi=true
  -Dtpm=false
  -Denvironment-d=false
  -Dbinfmt=false
@@ -145,7 +171,7 @@ CONFIGURE_OPTS=(
  -Dsysext=false
  -Duserdb=false
  -Dhomed=false
- -Dnetworkd=false
+ -Dnetworkd=true
  -Dtimedated=false
  -Dtimesyncd=false
  -Dremote=false
@@ -172,7 +198,11 @@ CONFIGURE_OPTS=(
  -Dpkgconfigdatadir='%{_cross_pkgconfigdir}'
  -Dpkgconfiglibdir='%{_cross_pkgconfigdir}'
 
+ %if %{with unified_cgroup_hierarchy}
+ -Ddefault-hierarchy=unified
+ %else
  -Ddefault-hierarchy=hybrid
+ %endif
 
  -Dadm-group=false
  -Dwheel-group=false
@@ -327,6 +357,13 @@ install -p -m 0644 %{S:4} %{buildroot}%{_cross_factorydir}%{_cross_sysconfdir}/i
 %{_cross_libdir}/sysusers.d/*
 %{_cross_libdir}/systemd/*
 %{_cross_libdir}/udev/*
+%exclude %{_cross_libdir}/tmpfiles.d/systemd-network.conf
+%exclude %{_cross_libdir}/sysusers.d/systemd-network.conf
+%exclude %{_cross_libdir}/systemd/systemd-networkd
+%exclude %{_cross_libdir}/systemd/systemd-networkd-wait-online
+%exclude %{_cross_libdir}/systemd/system/systemd-networkd.service
+%exclude %{_cross_libdir}/systemd/system/systemd-networkd-wait-online.service
+%exclude %{_cross_libdir}/systemd/system/systemd-networkd.socket
 
 %{_cross_tmpfilesdir}/*
 %exclude %{_cross_tmpfilesdir}/x11.conf
@@ -338,6 +375,8 @@ install -p -m 0644 %{S:4} %{buildroot}%{_cross_factorydir}%{_cross_sysconfdir}/i
 
 %{_cross_datadir}/dbus-1/*
 %exclude %{_cross_datadir}/polkit-1
+%exclude %{_cross_datadir}/dbus-1/system-services/org.freedesktop.network1.service
+%exclude %{_cross_datadir}/dbus-1/system.d/org.freedesktop.network1.conf
 
 %dir %{_cross_factorydir}
 %{_cross_factorydir}%{_cross_sysconfdir}/issue
@@ -402,5 +441,17 @@ install -p -m 0644 %{S:4} %{buildroot}%{_cross_factorydir}%{_cross_sysconfdir}/i
 %{_cross_includedir}/systemd/*.h
 %{_cross_pkgconfigdir}/*.pc
 %exclude %{_cross_libdir}/rpm/macros.d
+
+%files networkd
+%{_cross_bindir}/networkctl
+%{_cross_libdir}/systemd/system/systemd-networkd.service
+%{_cross_libdir}/systemd/system/systemd-networkd-wait-online.service
+%{_cross_libdir}/systemd/system/systemd-networkd.socket
+%{_cross_libdir}/systemd/systemd-networkd
+%{_cross_libdir}/systemd/systemd-networkd-wait-online
+%{_cross_libdir}/sysusers.d/systemd-network.conf
+%{_cross_datadir}/dbus-1/system-services/org.freedesktop.network1.service
+%{_cross_datadir}/dbus-1/system.d/org.freedesktop.network1.conf
+%{_cross_libdir}/tmpfiles.d/systemd-network.conf
 
 %changelog

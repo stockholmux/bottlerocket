@@ -6,8 +6,6 @@ storewolf creates the filesystem datastore used by the API system.
 It creates the datastore at a provided path and populates any default settings, as given in the
 TOML files of the current variant's `defaults.d` directory, unless the datastore already exists.
 */
-#![deny(rust_2018_idioms)]
-
 #[macro_use]
 extern crate log;
 
@@ -25,8 +23,6 @@ use datastore::key::{Key, KeyType};
 use datastore::serialization::{to_pairs, to_pairs_with_prefix};
 use datastore::{self, DataStore, FilesystemDataStore, ScalarError};
 use model::modeled_types::SingleLineString;
-
-use constants;
 
 mod error {
     use std::io;
@@ -63,10 +59,16 @@ mod error {
         DefaultsMetadataUnexpectedFormat {},
 
         #[snafu(display("Error querying datastore for populated keys: {}", source))]
-        QueryData { source: datastore::Error },
+        QueryData {
+            #[snafu(source(from(datastore::Error, Box::new)))]
+            source: Box<datastore::Error>,
+        },
 
         #[snafu(display("Error querying datastore for populated metadata: {}", source))]
-        QueryMetadata { source: datastore::Error },
+        QueryMetadata {
+            #[snafu(source(from(datastore::Error, Box::new)))]
+            source: Box<datastore::Error>,
+        },
 
         #[snafu(display("Error serializing {}: {} ", given, source))]
         Serialization {
@@ -78,17 +80,24 @@ mod error {
         SerializeScalar { given: String, source: ScalarError },
 
         #[snafu(display("Unable to write keys to the datastore: {}", source))]
-        WriteKeys { source: datastore::Error },
+        WriteKeys {
+            #[snafu(source(from(datastore::Error, Box::new)))]
+            source: Box<datastore::Error>,
+        },
 
         #[snafu(display("Unable to create {:?} key '{}': {}", key_type, key, source))]
         InvalidKey {
             key_type: KeyType,
             key: String,
-            source: datastore::Error,
+            #[snafu(source(from(datastore::Error, Box::new)))]
+            source: Box<datastore::Error>,
         },
 
         #[snafu(display("Unable to write metadata to the datastore: {}", source))]
-        WriteMetadata { source: datastore::Error },
+        WriteMetadata {
+            #[snafu(source(from(datastore::Error, Box::new)))]
+            source: Box<datastore::Error>,
+        },
 
         #[snafu(display("Logger setup error: {}", source))]
         Logger { source: log::SetLoggerError },
@@ -170,11 +179,10 @@ fn parse_metadata_toml(md_toml_val: toml::Value) -> Result<Vec<model::Metadata>>
 
                 // Make sure that the path contains more than 1 item, i.e. ["settings", "motd"]
                 ensure!(
-                    path.len() >= 1,
+                    !path.is_empty(),
                     error::InternalSnafu {
-                        msg: format!(
-                            "Cannot create empty metadata data key - is root not a Table?"
-                        )
+                        msg: "Cannot create empty metadata data key - is root not a Table?"
+                            .to_string()
                     }
                 );
                 let data_key = path.join(".");
@@ -447,7 +455,7 @@ fn parse_args(args: env::Args) -> Args {
 
     Args {
         data_store_base_path: data_store_base_path.unwrap_or_else(|| usage()),
-        log_level: log_level.unwrap_or_else(|| LevelFilter::Info),
+        log_level: log_level.unwrap_or(LevelFilter::Info),
         version,
     }
 }

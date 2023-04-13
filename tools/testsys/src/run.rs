@@ -7,8 +7,6 @@ use crate::vmware_k8s::VmwareK8sCreator;
 use bottlerocket_variant::Variant;
 use clap::Parser;
 use log::{debug, info};
-use model::test_manager::TestManager;
-use model::SecretName;
 use pubsys_config::vmware::{
     Datacenter, DatacenterBuilder, DatacenterCreds, DatacenterCredsBuilder, DatacenterCredsConfig,
     VMWARE_CREDS_PATH,
@@ -19,7 +17,10 @@ use serde_plain::{derive_display_from_serialize, derive_fromstr_from_deserialize
 use snafu::{OptionExt, ResultExt};
 use std::fs::read_to_string;
 use std::path::PathBuf;
+use std::str::FromStr;
 use testsys_config::{GenericVariantConfig, TestConfig};
+use testsys_model::test_manager::TestManager;
+use testsys_model::SecretName;
 
 /// Run a set of tests for a given arch and variant
 #[derive(Debug, Parser)]
@@ -42,6 +43,10 @@ pub(crate) struct Run {
     /// The path to `Test.toml`
     #[clap(long, env = "TESTSYS_TEST_CONFIG_PATH", parse(from_os_str))]
     test_config_path: PathBuf,
+
+    /// The path to the `tests` directory
+    #[clap(long, env = "TESTSYS_TESTS_DIR", parse(from_os_str))]
+    tests_directory: PathBuf,
 
     /// The path to the EKS-A management cluster kubeconfig for vSphere K8s cluster creation
     #[clap(long, env = "TESTSYS_MGMT_CLUSTER_KUBECONFIG", parse(from_os_str))]
@@ -69,6 +74,9 @@ pub(crate) struct Run {
     /// and resource agents.
     #[clap(long, env = "TESTSYS_TARGET_REGION")]
     target_region: Option<String>,
+
+    #[clap(long, env = "BUILDSYS_VERSION_BUILD")]
+    build_id: Option<String>,
 
     #[clap(flatten)]
     agent_images: TestsysImages,
@@ -99,8 +107,8 @@ pub(crate) struct Run {
     migration_target_version: Option<String>,
 
     /// The template file that should be used for custom testing.
-    #[clap(long = "template-file", short = 'f')]
-    custom_crd_template: Option<String>,
+    #[clap(long = "template-file", short = 'f', parse(from_os_str))]
+    custom_crd_template: Option<PathBuf>,
 }
 
 /// This is a CLI parsable version of `testsys_config::GenericVariantConfig`.
@@ -139,6 +147,14 @@ struct CliConfig {
     /// The endpoint IP to reserve for the vSphere control plane VMs when creating a K8s cluster
     #[clap(long, env = "TESTSYS_CONTROL_PLANE_ENDPOINT")]
     pub control_plane_endpoint: Option<String>,
+
+    /// Specify the path to the userdata that should be added for Bottlerocket launch
+    #[clap(long, env = "TESTSYS_USERDATA")]
+    pub userdata: Option<String>,
+
+    /// A set of workloads that should be run for a workload test (--workload my-workload=<WORKLOAD-IMAGE>)
+    #[clap(long = "workload", parse(try_from_str = parse_workloads), number_of_values = 1)]
+    pub workloads: Vec<(String, String)>,
 }
 
 impl From<CliConfig> for GenericVariantConfig {
@@ -151,6 +167,9 @@ impl From<CliConfig> for GenericVariantConfig {
             conformance_image: val.conformance_image,
             conformance_registry: val.conformance_registry,
             control_plane_endpoint: val.control_plane_endpoint,
+            userdata: val.userdata,
+            dev: Default::default(),
+            workloads: val.workloads.into_iter().collect(),
         }
     }
 }
@@ -168,12 +187,14 @@ impl Run {
 
         let test_opts = test_config.test.to_owned().unwrap_or_default();
 
-        let variant_config = test_config.reduced_config(
+        let (variant_config, test_type) = test_config.reduced_config(
             &variant,
             &self.arch,
             Some(self.config.into()),
             &self.test_flavor.to_string(),
         );
+        let resolved_test_type = TestType::from_str(&test_type)
+            .expect("All unrecognized test type become `TestType::Custom`");
 
         // If a lock file exists, use that, otherwise use Infra.toml or default
         let infra_config = InfraConfig::from_path_or_lock(&self.infra_config_path, true)?;
@@ -331,26 +352,30 @@ impl Run {
             client: &client,
             arch: self.arch,
             variant,
+            build_id: self.build_id,
             config: variant_config,
             repo_config,
             starting_version: self.migration_starting_version,
             migrate_to_version: self.migration_target_version,
             starting_image_id: self.starting_image_id,
+            test_type: resolved_test_type.clone(),
+            test_flavor: self.test_flavor.to_string(),
             images,
+            tests_directory: self.tests_directory,
         };
 
-        let crds = match &self.test_flavor {
-            TestType::Known(test_type) => crd_creator.create_crds(test_type, &crd_input).await?,
-            TestType::Custom(test_type) => {
+        let crds = match &resolved_test_type {
+            TestType::Known(resolved_test_type) => {
+                crd_creator
+                    .create_crds(resolved_test_type, &crd_input)
+                    .await?
+            }
+            TestType::Custom(resolved_test_type) => {
                 crd_creator
                     .create_custom_crds(
-                        test_type,
+                        resolved_test_type,
                         &crd_input,
-                        self.custom_crd_template
-                            .as_ref()
-                            .context(error::InvalidSnafu {
-                                what: "A crd template file is required for custom test types.",
-                            })?,
+                        self.custom_crd_template.to_owned(),
                     )
                     .await?
             }
@@ -380,7 +405,18 @@ fn parse_key_val(s: &str) -> Result<(String, SecretName)> {
     ))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+fn parse_workloads(s: &str) -> Result<(String, String)> {
+    let mut iter = s.splitn(2, '=');
+    let key = iter.next().context(error::InvalidSnafu {
+        what: "Key is missing",
+    })?;
+    let value = iter.next().context(error::InvalidSnafu {
+        what: "Value is missing",
+    })?;
+    Ok((key.to_string(), value.to_string()))
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum KnownTestType {
     /// Conformance testing is a full integration test that asserts that Bottlerocket is working for
@@ -395,11 +431,13 @@ pub enum KnownTestType {
     /// be created at the starting version, migrated to the target version and back to the starting
     /// version with validation testing.
     Migration,
+    /// Workload testing is used to test specific workloads on a set of Bottlerocket nodes.
+    Workload,
 }
 
 /// If a test type is one that is supported by TestSys it will be created as `Known(KnownTestType)`.
 /// All other test types will be stored as `Custom(<TEST-TYPE>)`.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub(crate) enum TestType {
     Known(KnownTestType),
@@ -466,6 +504,17 @@ pub(crate) struct TestsysImages {
     )]
     pub(crate) migration_test: Option<String>,
 
+    /// K8s workload agent URI. If not provided the latest released test agent will be used.
+    #[clap(
+        long = "k8s-workload-agent-image",
+        env = "TESTSYS_K8S_WORKLOAD_AGENT_IMAGE"
+    )]
+    pub(crate) k8s_workload: Option<String>,
+
+    /// TestSys controller URI. If not provided the latest released controller will be used.
+    #[clap(long = "controller-image", env = "TESTSYS_CONTROLLER_IMAGE")]
+    pub(crate) controller_uri: Option<String>,
+
     /// Images pull secret. This is the name of a Kubernetes secret that will be used to
     /// pull the container image from a private registry. For example, if you created a pull secret
     /// with `kubectl create secret docker-registry regcred` then you would pass
@@ -485,6 +534,8 @@ impl From<TestsysImages> for testsys_config::TestsysImages {
             sonobuoy_test_agent_image: val.sonobuoy_test,
             ecs_test_agent_image: val.ecs_test,
             migration_test_agent_image: val.migration_test,
+            k8s_workload_agent_image: val.k8s_workload,
+            controller_image: val.controller_uri,
             testsys_agent_pull_secret: val.secret,
         }
     }

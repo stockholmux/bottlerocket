@@ -10,8 +10,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     // `error` must be used instead of `source` because the build function returns
     // `std::error::Error` but not `std::error::Error + Sync + Send`.
-    #[snafu(display("Unable to build '{}': {}", what, error))]
-    Build { what: String, error: String },
+    #[snafu(display("Unable to build '{}': {}", what, source))]
+    Build {
+        what: String,
+        source: Box<dyn std::error::Error + Sync + Send>,
+    },
 
     #[snafu(display("Unable to build datacenter credentials: {}", source))]
     CredsBuild {
@@ -41,10 +44,16 @@ pub enum Error {
         context(false),
         display("Unable create template from yaml: {}", source)
     )]
-    HandlebarsTemplate { source: handlebars::TemplateError },
+    HandlebarsTemplate {
+        #[snafu(source(from(handlebars::TemplateError, Box::new)))]
+        source: Box<handlebars::TemplateError>,
+    },
 
     #[snafu(display("Unable to create map from {}: {}", what, source))]
-    IntoMap { what: String, source: model::Error },
+    IntoMap {
+        what: String,
+        source: testsys_model::Error,
+    },
 
     #[snafu(display("{}", what))]
     Invalid { what: String },
@@ -58,9 +67,6 @@ pub enum Error {
     #[snafu(display("Unable to parse K8s version '{}'", version))]
     K8sVersion { version: String },
 
-    #[snafu(display("{}", source))]
-    KubeClient { source: kube_client::error::Error },
-
     #[snafu(display("{} was missing from {}", item, what))]
     Missing { item: String, what: String },
 
@@ -70,7 +76,7 @@ pub enum Error {
     #[snafu(display("Unable to create secret name for '{}': {}", secret_name, source))]
     SecretName {
         secret_name: String,
-        source: model::Error,
+        source: testsys_model::Error,
     },
 
     #[snafu(display("{}: {}", what, source))]
@@ -86,7 +92,9 @@ pub enum Error {
     },
 
     #[snafu(context(false), display("{}", source))]
-    TestManager { source: model::test_manager::Error },
+    TestManager {
+        source: testsys_model::test_manager::Error,
+    },
 
     #[snafu(context(false), display("{}", source))]
     TestsysConfig { source: testsys_config::Error },

@@ -5,17 +5,16 @@ use crate::crds::{
 };
 use crate::error::{self, Result};
 use crate::migration::migration_crd;
-use crate::sonobuoy::sonobuoy_crd;
+use crate::sonobuoy::{sonobuoy_crd, workload_crd};
 use bottlerocket_types::agent_config::{
     ClusterType, CreationPolicy, EksClusterConfig, EksctlConfig, K8sVersion,
 };
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use maplit::btreemap;
-use model::constants::NAMESPACE;
-use model::{Agent, Configuration, Crd, DestructionPolicy, Resource, ResourceSpec};
+use serde_yaml::Value;
 use snafu::{OptionExt, ResultExt};
 use std::collections::BTreeMap;
 use std::str::FromStr;
+use testsys_model::{Crd, DestructionPolicy};
 
 /// A `CrdCreator` responsible for creating crd related to `aws-k8s` variants.
 pub(crate) struct AwsK8sCreator {
@@ -44,16 +43,51 @@ impl CrdCreator for AwsK8sCreator {
             })?)
            , &crd_input.arch,
            & self.region,
+           crd_input.config.dev.image_account_id.as_deref(),
         )
         .await
     }
 
     /// Create an EKS cluster CRD with the `cluster_name` in `cluster_input`.
     async fn cluster_crd<'a>(&self, cluster_input: ClusterInput<'a>) -> Result<CreateCrdOutput> {
+        let cluster_version =
+            K8sVersion::from_str(cluster_input.crd_input.variant.version().context(
+                error::MissingSnafu {
+                    item: "K8s version".to_string(),
+                    what: "aws-k8s variant".to_string(),
+                },
+            )?)
+            .map_err(|_| error::Error::K8sVersion {
+                version: cluster_input.crd_input.variant.to_string(),
+            })?;
+
+        let (cluster_name, region, config) = match cluster_input.cluster_config {
+            Some(config) => {
+                let (cluster_name, region) = cluster_config_data(config)?;
+                (
+                    cluster_name,
+                    region,
+                    EksctlConfig::File {
+                        encoded_config: base64::encode(config),
+                    },
+                )
+            }
+            None => (
+                cluster_input.cluster_name.to_string(),
+                self.region.clone(),
+                EksctlConfig::Args {
+                    cluster_name: cluster_input.cluster_name.to_string(),
+                    region: Some(self.region.clone()),
+                    zones: None,
+                    version: Some(cluster_version),
+                },
+            ),
+        };
+
         let labels = cluster_input.crd_input.labels(btreemap! {
             "testsys/type".to_string() => "cluster".to_string(),
-            "testsys/cluster".to_string() => cluster_input.cluster_name.to_string(),
-            "testsys/region".to_string() => self.region.clone()
+            "testsys/cluster".to_string() => cluster_name.to_string(),
+            "testsys/region".to_string() => region.clone()
         });
 
         // Check if the cluster already has a crd
@@ -69,65 +103,41 @@ impl CrdCreator for AwsK8sCreator {
             return Ok(CreateCrdOutput::ExistingCrd(cluster_crd));
         }
 
-        let cluster_version =
-            K8sVersion::from_str(cluster_input.crd_input.variant.version().context(
-                error::MissingSnafu {
-                    item: "K8s version".to_string(),
-                    what: "aws-k8s variant".to_string(),
-                },
-            )?)
-            .map_err(|_| error::Error::K8sVersion {
-                version: cluster_input.crd_input.variant.to_string(),
+        let eks_crd = EksClusterConfig::builder()
+            .creation_policy(CreationPolicy::IfNotExists)
+            .assume_role(cluster_input.crd_input.config.agent_role.clone())
+            .config(config)
+            .image(
+                cluster_input
+                    .crd_input
+                    .images
+                    .eks_resource_agent_image
+                    .to_owned()
+                    .expect("Missing default image for EKS resource agent"),
+            )
+            .set_image_pull_secret(
+                cluster_input
+                    .crd_input
+                    .images
+                    .testsys_agent_pull_secret
+                    .clone(),
+            )
+            .set_labels(Some(labels))
+            .set_secrets(Some(cluster_input.crd_input.config.secrets.clone()))
+            .destruction_policy(
+                cluster_input
+                    .crd_input
+                    .config
+                    .dev
+                    .cluster_destruction_policy
+                    .to_owned()
+                    .unwrap_or(DestructionPolicy::Never),
+            )
+            .build(cluster_name)
+            .context(error::BuildSnafu {
+                what: "EKS cluster CRD",
             })?;
 
-        let eks_crd = Resource {
-            metadata: ObjectMeta {
-                name: Some(cluster_input.cluster_name.to_string()),
-                namespace: Some(NAMESPACE.into()),
-                labels: Some(labels),
-                ..Default::default()
-            },
-            spec: ResourceSpec {
-                depends_on: None,
-                conflicts_with: None,
-                agent: Agent {
-                    name: "eks-provider".to_string(),
-                    image: cluster_input
-                        .crd_input
-                        .images
-                        .eks_resource_agent_image
-                        .to_owned()
-                        .expect("Missing default image for EKS resource agent"),
-                    pull_secret: cluster_input
-                        .crd_input
-                        .images
-                        .testsys_agent_pull_secret
-                        .clone(),
-                    keep_running: false,
-                    timeout: None,
-                    configuration: Some(
-                        EksClusterConfig {
-                            creation_policy: Some(CreationPolicy::IfNotExists),
-                            assume_role: cluster_input.crd_input.config.agent_role.clone(),
-                            config: EksctlConfig::Args {
-                                cluster_name: cluster_input.cluster_name.to_string(),
-                                region: Some(self.region.clone()),
-                                zones: None,
-                                version: Some(cluster_version),
-                            },
-                        }
-                        .into_map()
-                        .context(error::IntoMapSnafu {
-                            what: "eks crd config".to_string(),
-                        })?,
-                    ),
-                    secrets: Some(cluster_input.crd_input.config.secrets.clone()),
-                    ..Default::default()
-                },
-                destruction_policy: DestructionPolicy::Never,
-            },
-            status: None,
-        };
         Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Resource(eks_crd))))
     }
 
@@ -159,7 +169,48 @@ impl CrdCreator for AwsK8sCreator {
         )?))))
     }
 
+    async fn workload_crd<'a>(&self, test_input: TestInput<'a>) -> Result<CreateCrdOutput> {
+        Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Test(workload_crd(
+            test_input,
+        )?))))
+    }
+
     fn additional_fields(&self, _test_type: &str) -> BTreeMap<String, String> {
         btreemap! {"region".to_string() => self.region.clone()}
     }
+}
+
+/// Converts a eksctl cluster config to a `serde_yaml::Value` and extracts the cluster name and
+/// region from it.
+fn cluster_config_data(cluster_config: &str) -> Result<(String, String)> {
+    let config: Value = serde_yaml::from_str(cluster_config).context(error::SerdeYamlSnafu {
+        what: "Unable to deserialize cluster config",
+    })?;
+
+    let (cluster_name, region) = config
+        .get("metadata")
+        .map(|metadata| {
+            (
+                metadata.get("name").and_then(|name| name.as_str()),
+                metadata.get("region").and_then(|region| region.as_str()),
+            )
+        })
+        .context(error::MissingSnafu {
+            item: "metadata",
+            what: "eksctl config",
+        })?;
+    Ok((
+        cluster_name
+            .context(error::MissingSnafu {
+                item: "name",
+                what: "eksctl config metadata",
+            })?
+            .to_string(),
+        region
+            .context(error::MissingSnafu {
+                item: "region",
+                what: "eksctl config metadata",
+            })?
+            .to_string(),
+    ))
 }

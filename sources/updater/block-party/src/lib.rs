@@ -6,7 +6,7 @@
 //! * Getting a numbered partition on a disk
 //! * Getting the devices that are combined as a block device, e.g. a dm-verity device
 
-#![deny(missing_docs, rust_2018_idioms)]
+#![deny(missing_docs)]
 
 use snafu::{ensure, OptionExt, ResultExt};
 use std::ffi::OsString;
@@ -145,7 +145,7 @@ impl BlockDevice {
     /// Creates a `BlockDevice` from a special block device node.
     pub fn from_device_node<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let metadata = fs::metadata(&path).context(error::PathMetadataSnafu { path })?;
+        let metadata = fs::metadata(path).context(error::PathMetadataSnafu { path })?;
         let major = metadata.st_rdev() >> 8;
         let minor = metadata.st_rdev() & 0xff;
         Self::from_major_minor(major, minor)

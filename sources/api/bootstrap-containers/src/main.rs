@@ -70,12 +70,9 @@ journalctl -u bootstrap-containers@bear.service
 ```
 */
 
-#![deny(rust_2018_idioms)]
-
 #[macro_use]
 extern crate log;
 
-use constants;
 use datastore::{serialize_scalar, Key, KeyType};
 use simplelog::{Config as LogConfig, LevelFilter, SimpleLogger};
 use snafu::{ensure, OptionExt, ResultExt};
@@ -188,18 +185,14 @@ fn parse_args(args: env::Args) -> Result<(Args, Subcommand)> {
     match subcommand.as_deref() {
         Some("create-containers") => Ok((global_args, Subcommand::CreateContainers {})),
         Some("mark-bootstrap") => Ok((global_args, parse_mark_bootstrap_args(subcommand_args)?)),
-        None => {
-            return error::UsageSnafu {
-                message: format!("Missing subcommand"),
-            }
-            .fail()
+        None => error::UsageSnafu {
+            message: "Missing subcommand".to_string(),
         }
-        Some(x) => {
-            return error::UsageSnafu {
-                message: format!("Unknown subcommand '{}'", x),
-            }
-            .fail()
+        .fail(),
+        Some(x) => error::UsageSnafu {
+            message: format!("Unknown subcommand '{}'", x),
         }
+        .fail(),
     }
 }
 
@@ -233,18 +226,17 @@ fn parse_mark_bootstrap_args(args: Vec<String>) -> Result<Subcommand> {
     }
 
     let container_id = container_id.context(error::UsageSnafu {
-        message: format!("Did not give argument to --container-id"),
+        message: "Did not give argument to --container-id".to_string(),
     })?;
 
     let mode = mode.context(error::UsageSnafu {
-        message: format!("Did not give argument to --mode"),
+        message: "Did not give argument to --mode".to_string(),
     })?;
 
     Ok(Subcommand::MarkBootstrap(MarkBootstrapArgs {
-        container_id: container_id,
+        container_id,
         // Fail if 'mode' is invalid
-        mode: BootstrapContainerMode::try_from(mode.to_string())
-            .context(error::BootstrapContainerModeSnafu)?,
+        mode: BootstrapContainerMode::try_from(mode).context(error::BootstrapContainerModeSnafu)?,
     }))
 }
 
@@ -271,7 +263,7 @@ where
 
     let mode = container_details.mode.clone().unwrap_or_default();
 
-    let essential = container_details.essential.unwrap_or_else(|| false);
+    let essential = container_details.essential.unwrap_or(false);
 
     // Create the directory regardless if user data was provided for the container
     let dir = Path::new(PERSISTENT_STORAGE_DIR).join(name);
@@ -309,7 +301,7 @@ where
             debug!("Cleaning up container '{}'", name);
             command(
                 constants::HOST_CTR_BIN,
-                &[
+                [
                     "clean-up",
                     "--container-id",
                     format!("boot.{}", name).as_ref(),
@@ -323,7 +315,7 @@ where
         if host_containerd_unit.is_active()? && !systemd_unit.is_enabled()? {
             command(
                 constants::HOST_CTR_BIN,
-                &[
+                [
                     "clean-up",
                     "--container-id",
                     format!("boot.{}", name).as_ref(),
@@ -422,7 +414,7 @@ impl<'a> SystemdUnit<'a> {
     }
 
     fn is_enabled(&self) -> Result<bool> {
-        match command(constants::SYSTEMCTL_BIN, &["is-enabled", &self.unit]) {
+        match command(constants::SYSTEMCTL_BIN, ["is-enabled", self.unit]) {
             Ok(()) => Ok(true),
             Err(e) => {
                 // If the systemd unit is not enabled, then `systemctl is-enabled` will return a
@@ -439,7 +431,7 @@ impl<'a> SystemdUnit<'a> {
     }
 
     fn is_active(&self) -> Result<bool> {
-        match command(constants::SYSTEMCTL_BIN, &["is-active", &self.unit]) {
+        match command(constants::SYSTEMCTL_BIN, ["is-active", self.unit]) {
             Ok(()) => Ok(true),
             Err(e) => {
                 // If the systemd unit is not active(running), then `systemctl is-active` will
@@ -461,7 +453,7 @@ impl<'a> SystemdUnit<'a> {
         // until then.
         command(
             constants::SYSTEMCTL_BIN,
-            &["enable", &self.unit, "--no-reload"],
+            ["enable", self.unit, "--no-reload"],
         )
     }
 
@@ -470,7 +462,7 @@ impl<'a> SystemdUnit<'a> {
         // `apiclient`, so there is no need to add `--now` to stop them, and no need to reload.
         command(
             constants::SYSTEMCTL_BIN,
-            &["disable", &self.unit, "--no-reload"],
+            ["disable", self.unit, "--no-reload"],
         )
     }
 }
@@ -611,7 +603,8 @@ mod error {
         APIRequest {
             method: String,
             uri: String,
-            source: apiclient::Error,
+            #[snafu(source(from(apiclient::Error, Box::new)))]
+            source: Box<apiclient::Error>,
         },
 
         #[snafu(display(
@@ -653,7 +646,8 @@ mod error {
         ))]
         KeyFormat {
             key: String,
-            source: datastore::Error,
+            #[snafu(source(from(datastore::Error, Box::new)))]
+            source: Box<datastore::Error>,
         },
 
         #[snafu(display("Logger setup error: {}", source))]

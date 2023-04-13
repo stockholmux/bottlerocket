@@ -63,33 +63,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aws-k8s-1_21"
-version = "0.1.0"
-dependencies = [
- "aws-iam-authenticator",
- "cni",
- "cni-plugins",
- "kernel-5_10",
- "kubernetes-1_21",
- "release",
-]
-
-[[package]]
-name = "aws-k8s-1_21-nvidia"
-version = "0.1.0"
-dependencies = [
- "aws-iam-authenticator",
- "cni",
- "cni-plugins",
- "kernel-5_10",
- "kmod-5_10-nvidia",
- "kubernetes-1_21",
- "nvidia-container-toolkit",
- "nvidia-k8s-device-plugin",
- "release",
-]
-
-[[package]]
 name = "aws-k8s-1_22"
 version = "0.1.0"
 dependencies = [
@@ -171,6 +144,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-k8s-1_25"
+version = "0.1.0"
+dependencies = [
+ "aws-iam-authenticator",
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kubernetes-1_25",
+ "release",
+]
+
+[[package]]
+name = "aws-k8s-1_25-nvidia"
+version = "0.1.0"
+dependencies = [
+ "aws-iam-authenticator",
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kmod-5_15-nvidia",
+ "kubernetes-1_25",
+ "nvidia-container-toolkit",
+ "nvidia-k8s-device-plugin",
+ "release",
+]
+
+[[package]]
+name = "aws-k8s-1_26"
+version = "0.1.0"
+dependencies = [
+ "aws-iam-authenticator",
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kubernetes-1_26",
+ "release",
+]
+
+[[package]]
+name = "aws-k8s-1_26-nvidia"
+version = "0.1.0"
+dependencies = [
+ "aws-iam-authenticator",
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kmod-5_15-nvidia",
+ "kubernetes-1_26",
+ "nvidia-container-toolkit",
+ "nvidia-k8s-device-plugin",
+ "release",
+]
+
+[[package]]
 name = "aws-signing-helper"
 version = "0.1.0"
 dependencies = [
@@ -182,7 +209,7 @@ name = "bash"
 version = "0.1.0"
 dependencies = [
  "glibc",
- "ncurses",
+ "libncurses",
  "readline",
 ]
 
@@ -204,8 +231,8 @@ version = "0.1.0"
 dependencies = [
  "glibc",
  "libcap",
+ "libncurses",
  "libseccomp",
- "ncurses",
  "readline",
 ]
 
@@ -241,6 +268,7 @@ name = "containerd"
 version = "0.1.0"
 dependencies = [
  "glibc",
+ "pigz",
  "runc",
 ]
 
@@ -323,6 +351,14 @@ name = "ecs-gpu-init"
 version = "0.1.0"
 dependencies = [
  "glibc",
+]
+
+[[package]]
+name = "ethtool"
+version = "0.1.0"
+dependencies = [
+ "glibc",
+ "libmnl",
 ]
 
 [[package]]
@@ -419,6 +455,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyutils"
+version = "0.1.0"
+dependencies = [
+ "glibc",
+]
+
+[[package]]
 name = "kmod"
 version = "0.1.0"
 dependencies = [
@@ -444,15 +487,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kubernetes-1_21"
-version = "0.1.0"
-dependencies = [
- "aws-signing-helper",
- "ecr-credential-provider",
- "glibc",
-]
-
-[[package]]
 name = "kubernetes-1_22"
 version = "0.1.0"
 dependencies = [
@@ -472,6 +506,24 @@ dependencies = [
 
 [[package]]
 name = "kubernetes-1_24"
+version = "0.1.0"
+dependencies = [
+ "aws-signing-helper",
+ "ecr-credential-provider",
+ "glibc",
+]
+
+[[package]]
+name = "kubernetes-1_25"
+version = "0.1.0"
+dependencies = [
+ "aws-signing-helper",
+ "ecr-credential-provider",
+ "glibc",
+]
+
+[[package]]
+name = "kubernetes-1_26"
 version = "0.1.0"
 dependencies = [
  "aws-signing-helper",
@@ -579,6 +631,13 @@ dependencies = [
 
 [[package]]
 name = "libmnl"
+version = "0.1.0"
+dependencies = [
+ "glibc",
+]
+
+[[package]]
+name = "libncurses"
 version = "0.1.0"
 dependencies = [
  "glibc",
@@ -772,17 +831,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "metal-k8s-1_21"
-version = "0.1.0"
-dependencies = [
- "cni",
- "cni-plugins",
- "kernel-5_10",
- "kubernetes-1_21",
- "release",
-]
-
-[[package]]
 name = "metal-k8s-1_22"
 version = "0.1.0"
 dependencies = [
@@ -816,15 +864,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "microcode"
-version = "0.1.0"
-
-[[package]]
-name = "ncurses"
+name = "metal-k8s-1_25"
 version = "0.1.0"
 dependencies = [
- "glibc",
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kubernetes-1_25",
+ "release",
 ]
+
+[[package]]
+name = "metal-k8s-1_26"
+version = "0.1.0"
+dependencies = [
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kubernetes-1_26",
+ "release",
+]
+
+[[package]]
+name = "microcode"
+version = "0.1.0"
 
 [[package]]
 name = "nvidia-container-toolkit"
@@ -866,6 +929,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pigz"
+version = "0.1.0"
+dependencies = [
+ "glibc",
+ "libz",
+]
+
+[[package]]
 name = "policycoreutils"
 version = "0.1.0"
 dependencies = [
@@ -880,8 +951,8 @@ name = "procps"
 version = "0.1.0"
 dependencies = [
  "glibc",
+ "libncurses",
  "libselinux",
- "ncurses",
 ]
 
 [[package]]
@@ -889,7 +960,7 @@ name = "readline"
 version = "0.1.0"
 dependencies = [
  "glibc",
- "ncurses",
+ "libncurses",
 ]
 
 [[package]]
@@ -905,6 +976,7 @@ dependencies = [
  "coreutils",
  "dbus-broker",
  "e2fsprogs",
+ "ethtool",
  "filesystem",
  "findutils",
  "glibc",
@@ -915,6 +987,7 @@ dependencies = [
  "iproute",
  "iptables",
  "kexec-tools",
+ "keyutils",
  "libaudit",
  "libgcc",
  "libstd-rust",
@@ -977,9 +1050,9 @@ version = "0.1.0"
 dependencies = [
  "glibc",
  "libacl",
+ "libncurses",
  "libselinux",
  "libxcrypt",
- "ncurses",
 ]
 
 [[package]]
@@ -998,18 +1071,6 @@ dependencies = [
  "release",
  "strace",
  "tcpdump",
-]
-
-[[package]]
-name = "vmware-k8s-1_21"
-version = "0.1.0"
-dependencies = [
- "cni",
- "cni-plugins",
- "kernel-5_10",
- "kubernetes-1_21",
- "open-vm-tools",
- "release",
 ]
 
 [[package]]
@@ -1044,6 +1105,30 @@ dependencies = [
  "cni-plugins",
  "kernel-5_15",
  "kubernetes-1_24",
+ "open-vm-tools",
+ "release",
+]
+
+[[package]]
+name = "vmware-k8s-1_25"
+version = "0.1.0"
+dependencies = [
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kubernetes-1_25",
+ "open-vm-tools",
+ "release",
+]
+
+[[package]]
+name = "vmware-k8s-1_26"
+version = "0.1.0"
+dependencies = [
+ "cni",
+ "cni-plugins",
+ "kernel-5_15",
+ "kubernetes-1_26",
  "open-vm-tools",
  "release",
 ]

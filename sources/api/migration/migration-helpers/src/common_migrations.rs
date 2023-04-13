@@ -1,4 +1,4 @@
-use crate::{error, Metadata, Migration, MigrationData, Result};
+use crate::{error, Migration, MigrationData, Result};
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt};
 use std::collections::HashMap;
@@ -30,24 +30,6 @@ impl Migration for AddSettingsMigration<'_> {
             }
         }
         Ok(input)
-    }
-}
-
-// =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
-
-/// Similar to the above, this migration is for when we add a single setting.
-/// We are retaining this migration helper in case there are migrations already using it.
-#[deprecated(note = "Please use `AddSettingsMigration` instead")]
-pub struct AddSettingMigration(pub &'static str);
-
-#[allow(deprecated)]
-impl Migration for AddSettingMigration {
-    fn forward(&mut self, input: MigrationData) -> Result<MigrationData> {
-        AddSettingsMigration(&[self.0]).forward(input)
-    }
-
-    fn backward(&mut self, input: MigrationData) -> Result<MigrationData> {
-        AddSettingsMigration(&[self.0]).backward(input)
     }
 }
 
@@ -201,24 +183,6 @@ impl Migration for RemoveSettingsMigration<'_> {
             self.0
         );
         Ok(input)
-    }
-}
-
-// =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
-
-/// Similar to the above, this migration is for when we need to remove a single setting.
-/// We are retaining this migration helper in case there are migrations already using it.
-#[deprecated(note = "Please use `RemoveSettingsMigration` instead")]
-pub struct RemoveSettingMigration(pub &'static str);
-
-#[allow(deprecated)]
-impl Migration for RemoveSettingMigration {
-    fn forward(&mut self, input: MigrationData) -> Result<MigrationData> {
-        RemoveSettingsMigration(&[self.0]).forward(input)
-    }
-
-    fn backward(&mut self, input: MigrationData) -> Result<MigrationData> {
-        RemoveSettingsMigration(&[self.0]).backward(input)
     }
 }
 
@@ -632,17 +596,14 @@ impl ReplaceTemplateMigration {
         incoming_template: &str,
         input: &mut MigrationData,
     ) -> Result<()> {
-        if let Some(template) = &self.get_setting_template(&input) {
+        if let Some(template) = &self.get_setting_template(input) {
             if template == outgoing_template {
                 println!(
                     "Changing template of '{}' from '{}' to '{}'",
                     self.setting, outgoing_template, incoming_template
                 );
                 // Update the setting's template
-                let metadata = input
-                    .metadata
-                    .entry(self.setting.to_string())
-                    .or_insert(Metadata::new());
+                let metadata = input.metadata.entry(self.setting.to_string()).or_default();
                 metadata.insert(
                     "template".to_string(),
                     serde_json::Value::String(incoming_template.to_string()),
@@ -703,6 +664,7 @@ impl Migration for ReplaceTemplateMigration {
             self.update_template_and_data(
                 // Clone the input string; we need to give the function mutable access to
                 // the structure that contains the string, so we can't pass a reference into the structure.
+                #[allow(clippy::unnecessary_to_owned)]
                 &data.to_owned(),
                 self.old_template,
                 self.new_template,
@@ -728,6 +690,7 @@ impl Migration for ReplaceTemplateMigration {
             self.update_template_and_data(
                 // Clone the input string; we need to give the function mutable access to
                 // the structure that contains the string, so we can't pass a reference into the structure.
+                #[allow(clippy::unnecessary_to_owned)]
                 &data.to_owned(),
                 self.new_template,
                 self.old_template,
@@ -815,7 +778,7 @@ mod test_add_metadata {
         assert_eq!(
             result.metadata,
             hashmap! {
-                "hi".into() => HashMap::new().into(),
+                "hi".into() => HashMap::new(),
             }
         );
     }
@@ -1367,5 +1330,27 @@ mod test_replace_metadata {
                 "dirtywave".into() => hashmap!{"qualities".into() => vec!["synthesizer", "sequencer"].into()}
             }
         );
+    }
+}
+
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+
+/// When we add conditional migrations that can only run for specific variants, we need to run this
+/// migration helper for cases where the migration does NOT apply so migrator will still create a valid
+/// intermediary datastore that the host can transition to.
+#[derive(Debug)]
+pub struct NoOpMigration;
+
+impl Migration for NoOpMigration {
+    /// No work to do on forward migrations, copy the same datastore
+    fn forward(&mut self, input: MigrationData) -> Result<MigrationData> {
+        println!("NoOpMigration has no work to do on upgrade.",);
+        Ok(input)
+    }
+
+    /// No work to do on backward migrations, copy the same datastore
+    fn backward(&mut self, input: MigrationData) -> Result<MigrationData> {
+        println!("NoOpMigration has no work to do on downgrade.",);
+        Ok(input)
     }
 }

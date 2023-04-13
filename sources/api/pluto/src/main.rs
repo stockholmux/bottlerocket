@@ -1,5 +1,3 @@
-#![deny(rust_2018_idioms)]
-
 /*!
 # Introduction
 
@@ -278,15 +276,13 @@ async fn get_node_ip(client: &mut ImdsClient) -> Result<String> {
             .context(error::ImdsNoneSnafu {
                 what: "node ipv4 address",
             }),
-        IpAddr::V6(_) => {
-            return client
-                .fetch_primary_ipv6_address()
-                .await
-                .context(error::ImdsRequestSnafu)?
-                .context(error::ImdsNoneSnafu {
-                    what: "ipv6s associated with primary network interface",
-                });
-        }
+        IpAddr::V6(_) => client
+            .fetch_primary_ipv6_address()
+            .await
+            .context(error::ImdsRequestSnafu)?
+            .context(error::ImdsNoneSnafu {
+                what: "ipv6s associated with primary network interface",
+            }),
     }
 }
 

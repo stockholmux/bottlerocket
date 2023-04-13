@@ -8,9 +8,9 @@ use crate::migration::migration_crd;
 use bottlerocket_types::agent_config::{ClusterType, EcsClusterConfig, EcsTestConfig};
 use log::debug;
 use maplit::btreemap;
-use model::{Crd, DestructionPolicy};
-use snafu::OptionExt;
+use snafu::{OptionExt, ResultExt};
 use std::collections::BTreeMap;
+use testsys_model::{Crd, DestructionPolicy};
 
 /// A `CrdCreator` responsible for creating crd related to `aws-ecs` variants.
 pub(crate) struct AwsEcsCreator {
@@ -39,6 +39,7 @@ impl CrdCreator for AwsEcsCreator {
             })?)
            , &crd_input.arch,
            & self.region,
+           crd_input.config.dev.image_account_id.as_deref(),
         )
         .await
     }
@@ -73,7 +74,15 @@ impl CrdCreator for AwsEcsCreator {
             .cluster_name(cluster_input.cluster_name)
             .region(Some(self.region.to_owned()))
             .assume_role(cluster_input.crd_input.config.agent_role.clone())
-            .destruction_policy(DestructionPolicy::OnTestSuccess)
+            .destruction_policy(
+                cluster_input
+                    .crd_input
+                    .config
+                    .dev
+                    .cluster_destruction_policy
+                    .to_owned()
+                    .unwrap_or(DestructionPolicy::OnTestSuccess),
+            )
             .image(
                 cluster_input
                     .crd_input
@@ -91,9 +100,8 @@ impl CrdCreator for AwsEcsCreator {
             )
             .set_secrets(Some(cluster_input.crd_input.config.secrets.clone()))
             .build(cluster_input.cluster_name)
-            .map_err(|e| error::Error::Build {
-                what: "ECS cluster CRD".to_string(),
-                error: e.to_string(),
+            .context(error::BuildSnafu {
+                what: "ECS cluster CRD",
             })?;
 
         Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Resource(ecs_crd))))
@@ -161,20 +169,34 @@ impl CrdCreator for AwsEcsCreator {
                     .testsys_agent_pull_secret
                     .to_owned(),
             )
-            .keep_running(true)
+            .keep_running(
+                test_input
+                    .crd_input
+                    .config
+                    .dev
+                    .keep_tests_running
+                    .unwrap_or(false),
+            )
             .set_secrets(Some(test_input.crd_input.config.secrets.to_owned()))
             .set_labels(Some(labels))
             .build(format!(
-                "{}-test{}",
+                "{}-{}",
                 cluster_resource_name,
-                test_input.name_suffix.unwrap_or_default()
+                test_input
+                    .name_suffix
+                    .unwrap_or(test_input.crd_input.test_flavor.as_str())
             ))
-            .map_err(|e| error::Error::Build {
-                what: "ECS test CRD".to_string(),
-                error: e.to_string(),
+            .context(error::BuildSnafu {
+                what: "ECS test CRD",
             })?;
 
         Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Test(test_crd))))
+    }
+
+    async fn workload_crd<'a>(&self, _test_input: TestInput<'a>) -> Result<CreateCrdOutput> {
+        Err(error::Error::Invalid {
+            what: "Workload testing is not supported for non-k8s variants".to_string(),
+        })
     }
 
     fn additional_fields(&self, _test_type: &str) -> BTreeMap<String, String> {

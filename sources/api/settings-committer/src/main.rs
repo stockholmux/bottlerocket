@@ -8,12 +8,9 @@ By default, it commits the 'bottlerocket-launch' transaction, which is used to o
 
 The `--transaction` argument can be used to specify another transaction.
 */
-#![deny(rust_2018_idioms)]
-
 #[macro_use]
 extern crate log;
 
-use constants;
 use simplelog::{Config as LogConfig, LevelFilter, SimpleLogger};
 use snafu::ResultExt;
 use std::str::FromStr;
@@ -36,7 +33,8 @@ mod error {
         APIRequest {
             method: String,
             uri: String,
-            source: apiclient::Error,
+            #[snafu(source(from(apiclient::Error, Box::new)))]
+            source: Box<apiclient::Error>,
         },
 
         #[snafu(display("Error {} when sending {} to {}: {}", code, method, uri, response_body))]
@@ -193,7 +191,7 @@ fn parse_args(args: env::Args) -> Args {
 
     Args {
         transaction: transaction.unwrap_or_else(|| constants::LAUNCH_TRANSACTION.to_string()),
-        log_level: log_level.unwrap_or_else(|| LevelFilter::Info),
+        log_level: log_level.unwrap_or(LevelFilter::Info),
         socket_path: socket_path.unwrap_or_else(|| constants::API_SOCKET.to_string()),
     }
 }

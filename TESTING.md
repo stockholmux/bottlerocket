@@ -198,18 +198,18 @@ You will need to delete the EKS cluster manually when you are done using it.
 
 ```shell
 cargo make \
-  -e BUILDSYS_VARIANT="aws-k8s-1.21" \
+  -e BUILDSYS_VARIANT="aws-k8s-1.24" \
   -e BUILDSYS_ARCH="x86_64" \
   build
 
 cargo make \
-  -e BUILDSYS_VARIANT="aws-k8s-1.21" \
+  -e BUILDSYS_VARIANT="aws-k8s-1.24" \
   -e BUILDSYS_ARCH="x86_64" \
-  -e PUBLISH_REGIONS="us-west-2"
+  -e PUBLISH_REGIONS="us-west-2" \
   ami
 
 cargo make \
-  -e BUILDSYS_VARIANT="aws-k8s-1.21" \
+  -e BUILDSYS_VARIANT="aws-k8s-1.24" \
   -e BUILDSYS_ARCH="x86_64" \
   test
 ```
@@ -234,7 +234,7 @@ cargo make \
 cargo make \
   -e BUILDSYS_VARIANT="aws-ecs-1" \
   -e BUILDSYS_ARCH="x86_64" \
-  -e PUBLISH_REGIONS="us-west-2"
+  -e PUBLISH_REGIONS="us-west-2" \
   ami
 
 cargo make \
@@ -380,6 +380,26 @@ cargo make -e TESTSYS_TEST=migration test
 ```
 
 To see the state of the tests as they run use `cargo make watch-test`.
+
+### Testing Workloads
+
+Workload tests are tests designed to run as an orchestrated container.
+A workload test is defined in `Test.toml` with a map named `workloads`.
+
+```toml
+[aws-nvidia]
+workloads = { <WORKLOAD-NAME> = "<WORKLOAD-IMAGE-URI>" }
+```
+
+To run the workload test set `TESTSYS_TEST=workload` in the `cargo make test` call.
+
+```shell
+cargo make -e TESTSYS_TEST=workload test
+```
+
+To see the state of the tests as they run use `cargo make watch-test`.
+
+For more information can be found in the [TestSys workload documentation](https://github.com/bottlerocket-os/bottlerocket-test-system/tree/develop/bottlerocket/tests/workload).
 
 ### Custom Test Types
 

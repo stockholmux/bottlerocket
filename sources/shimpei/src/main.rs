@@ -4,12 +4,9 @@
   parameters that can't be provided by containerd.
 */
 
-#![deny(rust_2018_idioms)]
-
 #[macro_use]
 extern crate log;
 
-use nix;
 use simplelog::{Config as LogConfig, LevelFilter, SimpleLogger};
 use snafu::{OptionExt, ResultExt};
 use std::env;

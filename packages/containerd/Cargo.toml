@@ -1,7 +1,7 @@
 [package]
 name = "containerd"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 publish = false
 build = "build.rs"
 
@@ -12,8 +12,8 @@ path = "pkg.rs"
 releases-url = "https://github.com/containerd/containerd/releases"
 
 [[package.metadata.build-package.external-files]]
-url = "https://github.com/containerd/containerd/archive/v1.6.12/containerd-1.6.12.tar.gz"
-sha512 = "adec6b28bfeea591af8204341dbdf1477f878be28c318745cacdf1b8de2831e3b4d832ad2026fbd9800d6452b5eb186bd94fe78d4dfed163b1cb32e9a92f38fa"
+url = "https://github.com/containerd/containerd/archive/v1.6.19/containerd-1.6.19.tar.gz"
+sha512 = "dca78d472dfbc6fc4d9b0b3a0d0a131d3575163c52e4fe18ea2c6147868b8822c54046c0709974e9b90472b882ba3890ada7f0fcbf31549efffba0d91531886c"
 
 # RPM BuildRequires
 [build-dependencies]
@@ -22,3 +22,4 @@ glibc = { path = "../glibc" }
 # RPM Requires
 [dependencies]
 runc = { path = "../runc" }
+pigz = { path = "../pigz" }

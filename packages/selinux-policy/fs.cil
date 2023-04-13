@@ -1,7 +1,7 @@
 ; Label inodes by using xattrs for supported filesystems.
-(fsuse xattr ext4 any)
-(fsuse xattr overlay any)
-(fsuse xattr xfs any)
+(fsuse xattr ext4 local)
+(fsuse xattr overlay local)
+(fsuse xattr xfs local)
 
 ; Label inodes by using the type of the creating task.
 (fsuse task eventpollfs any)
@@ -55,6 +55,7 @@
 (filecon "/.*/usr/bin/docker.*" file runtime_exec)
 (filecon "/.*/usr/bin/host-ctr" file runtime_exec)
 (filecon "/.*/usr/sbin/runc" file runtime_exec)
+(filecon "/.*/usr/bin/shibaken" file api_exec)
 
 ; Label local storage mounts.
 (filecon "/local" any local)

@@ -1,13 +1,13 @@
+use crate::modeled_types::Identifier;
+use crate::{
+    AutoScalingSettings, AwsSettings, BootstrapContainer, CloudFormationSettings, DnsSettings,
+    HostContainer, KernelSettings, KubernetesSettings, MetricsSettings, NetworkSettings,
+    NtpSettings, OciDefaults, OciHooks, PemCertificate, RegistrySettings, UpdatesSettings,
+};
+
 use model_derive::model;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-use crate::modeled_types::Identifier;
-use crate::{
-    AwsSettings, BootstrapContainer, CloudFormationSettings, DnsSettings, HostContainer,
-    KernelSettings, KubernetesSettings, MetricsSettings, NetworkSettings, NtpSettings, OciHooks,
-    PemCertificate, RegistrySettings, UpdatesSettings,
-};
 
 // Note: we have to use 'rename' here because the top-level Settings structure is the only one
 // that uses its name in serialization; internal structures use the field name that points to it
@@ -25,7 +25,9 @@ struct Settings {
     metrics: MetricsSettings,
     pki: HashMap<Identifier, PemCertificate>,
     container_registry: RegistrySettings,
+    oci_defaults: OciDefaults,
     oci_hooks: OciHooks,
     cloudformation: CloudFormationSettings,
     dns: DnsSettings,
+    autoscaling: AutoScalingSettings,
 }

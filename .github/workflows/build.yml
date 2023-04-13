@@ -22,6 +22,14 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # When Go packages are built, buildsys will vendor in dependent Go code for
+  # that package and bundle it up in a tarball. This env variable is consumed
+  # and used to configure Go to directly download code from its upstream source.
+  # This is a useful early signal during GitHub actions to see if there are
+  # upstream Go code problems.
+  GOPROXY: direct
+
 jobs:
   build:
     runs-on:
@@ -30,7 +38,7 @@ jobs:
     continue-on-error: ${{ matrix.supported }}
     strategy:
       matrix:
-        variant: [aws-k8s-1.21, aws-k8s-1.22, aws-k8s-1.23, aws-k8s-1.24, aws-ecs-1]
+        variant: [aws-k8s-1.22, aws-k8s-1.23, aws-k8s-1.24, aws-k8s-1.25, aws-k8s-1.26, aws-ecs-1]
         arch: [x86_64, aarch64]
         supported: [true]
         fetch-upstream: ["false"]
@@ -47,10 +55,6 @@ jobs:
             arch: x86_64
             supported: false
             fetch-upstream: "false"
-          - variant: metal-k8s-1.21
-            arch: x86_64
-            supported: false
-            fetch-upstream: "false"
           - variant: metal-k8s-1.22
             arch: x86_64
             supported: false
@@ -63,9 +67,13 @@ jobs:
             arch: x86_64
             supported: false
             fetch-upstream: "false"
-          - variant: vmware-k8s-1.21
+          - variant: metal-k8s-1.25
             arch: x86_64
-            supported: true
+            supported: false
+            fetch-upstream: "false"
+          - variant: metal-k8s-1.26
+            arch: x86_64
+            supported: false
             fetch-upstream: "false"
           - variant: vmware-k8s-1.22
             arch: x86_64
@@ -79,14 +87,14 @@ jobs:
             arch: x86_64
             supported: true
             fetch-upstream: "false"
-          - variant: aws-k8s-1.21-nvidia
+          - variant: vmware-k8s-1.25
             arch: x86_64
             supported: true
-            fetch-upstream: "true"
-          - variant: aws-k8s-1.21-nvidia
-            arch: aarch64
+            fetch-upstream: "false"
+          - variant: vmware-k8s-1.26
+            arch: x86_64
             supported: true
-            fetch-upstream: "true"
+            fetch-upstream: "false"
           - variant: aws-k8s-1.22-nvidia
             arch: x86_64
             supported: true
@@ -108,6 +116,22 @@ jobs:
             supported: true
             fetch-upstream: "true"
           - variant: aws-k8s-1.24-nvidia
+            arch: aarch64
+            supported: true
+            fetch-upstream: "true"
+          - variant: aws-k8s-1.25-nvidia
+            arch: x86_64
+            supported: true
+            fetch-upstream: "true"
+          - variant: aws-k8s-1.25-nvidia
+            arch: aarch64
+            supported: true
+            fetch-upstream: "true"
+          - variant: aws-k8s-1.26-nvidia
+            arch: x86_64
+            supported: true
+            fetch-upstream: "true"
+          - variant: aws-k8s-1.26-nvidia
             arch: aarch64
             supported: true
             fetch-upstream: "true"
@@ -151,7 +175,7 @@ jobs:
           key: ${{ hashFiles('.github/workflows/cache.yml') }}-${{ runner.os }}-${{ env.OS_ARCH }}-${{ hashFiles('tools/Cargo.lock') }}-${{ hashFiles('.github/workflows/build.yml') }}
           restore-keys: |
             ${{ hashFiles('.github/workflows/cache.yml') }}-${{ runner.os }}-${{ env.OS_ARCH }}-${{ hashFiles('tools/Cargo.lock') }}
-      - run: rustup default 1.64.0 && rustup component add rustfmt && rustup component add clippy
+      - run: rustup component add rustfmt
       - run: cargo install --version 0.36.0 cargo-make
       - run: cargo install --version 0.6.2 cargo-sweep
       - run: |

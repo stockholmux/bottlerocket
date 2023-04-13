@@ -1,5 +1,5 @@
 Name: %{_cross_os}dbus-broker
-Version: 32
+Version: 33
 Release: 1%{?dist}
 Summary: D-BUS message broker
 License: Apache-2.0
@@ -17,6 +17,9 @@ BuildRequires: %{_cross_os}systemd-devel
 Requires: %{_cross_os}libexpat
 Requires: %{_cross_os}libselinux
 Requires: %{_cross_os}systemd
+
+# Work around an aliasing rules violation.
+Patch0001: 0001-c-utf8-disable-strict-aliasing-optimizations.patch
 
 %description
 %{summary}.

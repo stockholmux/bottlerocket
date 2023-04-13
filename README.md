@@ -60,14 +60,16 @@ For example, an `x86_64` build of the `aws-k8s-1.24` variant will produce an ima
 
 The following variants support EKS, as described above:
 
-* `aws-k8s-1.21`
 * `aws-k8s-1.22`
 * `aws-k8s-1.23`
 * `aws-k8s-1.24`
-* `aws-k8s-1.21-nvidia`
+* `aws-k8s-1.25`
+* `aws-k8s-1.26`
 * `aws-k8s-1.22-nvidia`
 * `aws-k8s-1.23-nvidia`
 * `aws-k8s-1.24-nvidia`
+* `aws-k8s-1.25-nvidia`
+* `aws-k8s-1.26-nvidia`
 
 The following variants support ECS:
 
@@ -76,27 +78,23 @@ The following variants support ECS:
 
 We also have variants that are designed to be Kubernetes worker nodes in VMware:
 
-* `vmware-k8s-1.21`
 * `vmware-k8s-1.22`
 * `vmware-k8s-1.23`
 * `vmware-k8s-1.24`
+* `vmware-k8s-1.25`
+* `vmware-k8s-1.26`
 
 The following variants are designed to be Kubernetes worker nodes on bare metal:
 
-* `metal-k8s-1.21`
 * `metal-k8s-1.22`
 * `metal-k8s-1.23`
 * `metal-k8s-1.24`
+* `metal-k8s-1.25`
+* `metal-k8s-1.26`
 
 The following variants are no longer supported:
 
-* `aws-k8s-1.15`
-* `aws-k8s-1.16`
-* `aws-k8s-1.17`
-* `aws-k8s-1.18`
-* `aws-k8s-1.19`
-* `aws-k8s-1.20`
-* `vmware-k8s-1.20`
+* All Kubernetes variants using Kubernetes 1.21 and earlier
 
 We recommend users replace nodes running these variants with the [latest variant compatible with their cluster](variants/).
 
@@ -436,6 +434,11 @@ The following settings are optional and allow you to further configure your clus
     "*.dkr.ecr.us-east-2.amazonaws.com",
     "*.dkr.ecr.us-west-2.amazonaws.com"
   ]
+
+  [settings.kubernetes.credential-providers.ecr-credential-provider.environment]
+  # The following are not used with ecr-credential-provider, but are provided for illustration
+  "KEY" = "abc123xyz"
+  "GOMAXPROCS" = "2"
   ```
 
   **Note:** `ecr-credential-provider` is currently the only supported provider.
@@ -470,8 +473,29 @@ The following settings are optional and allow you to further configure your clus
   "memory.available" = "15%"
   ```
 
-* `settings.kubernetes.image-gc-high-threshold-percent`: The percent of disk usage after which image garbage collection is always run.
-* `settings.kubernetes.image-gc-low-threshold-percent`: The percent of disk usage before which image garbage collection is never run.
+* `settings.kubernetes.image-gc-high-threshold-percent`: The percent of disk usage after which image garbage collection is always run, expressed as an integer from 0-100 inclusive.
+* `settings.kubernetes.image-gc-low-threshold-percent`: The percent of disk usage before which image garbage collection is never run, expressed as an integer from 0-100 inclusive.
+
+Since v1.14.0 `image-gc-high-threshold-percent` and `image-gc-low-threshold-percent` can be represented as numbers.
+For example:
+
+```toml
+[settings.kubernetes]
+image-gc-high-threshold-percent = 85
+image-gc-low-threshold-percent = 80
+```
+
+For backward compatibility, both string and numeric representations are accepted since v1.14.0.
+Prior to v1.14.0 these needed to be represented as strings, for example:
+
+```toml
+[settings.kubernetes]
+image-gc-high-threshold-percent = "85"
+image-gc-low-threshold-percent = "80"
+```
+
+If you downgrade from v1.14.0 to an earlier version, and you have these values set as numbers, they will be converted to strings on downgrade.
+
 * `settings.kubernetes.kube-api-burst`: The burst to allow while talking with kubernetes.
 * `settings.kubernetes.kube-api-qps`: The QPS to use while talking with kubernetes apiserver.
 * `settings.kubernetes.log-level`: Adjust the logging verbosity of the `kubelet` process.
@@ -579,6 +603,12 @@ For AWS variants, these settings allow you to set up CloudFormation signaling to
 #### Auto Scaling group settings
 
 * `settings.autoscaling.should-wait`: Whether to wait for the instance to reach the `InService` state before the orchestrator agent joins the cluster. Defaults to `false`. Set this to `true` only if the instance is part of an Auto Scaling group, or will be attached to one later.
+  For example:
+
+  ```toml
+  [settings.autoscaling]
+  should-wait = true
+  ```
 
 #### OCI Hooks settings
 
@@ -586,6 +616,75 @@ Bottlerocket allows you to opt-in to use additional [OCI hooks](https://github.c
 Once you opt-in to use additional OCI hooks, any new orchestrated containers will be configured with them, but existing containers won't be changed.
 
 * `settings.oci-hooks.log4j-hotpatch-enabled`: Enables the [hotdog OCI hooks](https://github.com/bottlerocket-os/hotdog), which are used to inject the [Log4j Hot Patch](https://github.com/corretto/hotpatch-for-apache-log4j2) into containers. Defaults to `false`.
+
+#### OCI Defaults settings
+
+Bottlerocket allows you to customize certain parts of the default [OCI spec](https://github.com/opencontainers/runtime-spec/blob/main/config.md) that is applied to workload containers.
+
+The following settings are available:
+
+##### OCI Defaults: Capabilities
+
+All of the `capabilities` settings below are boolean values (`true`/`false`).
+
+The full list of capabilities that can be configured in Bottlerocket are as follows:
+
+capability | setting | default value
+----- | ----- | -----
+`CAP_AUDIT_WRITE` | `settings.oci-defaults.capabilities.audit-write` | true
+`CAP_CHOWN` | `settings.oci-defaults.capabilities.chown` | true
+`CAP_DAC_OVERRIDE` | `settings.oci-defaults.capabilities.dac-override` | true
+`CAP_FOWNER` | `settings.oci-defaults.capabilities.fowner` | true
+`CAP_FSETID` | `settings.oci-defaults.capabilities.fsetid` | true
+`CAP_KILL` | `settings.oci-defaults.capabilities.kill` | true
+`CAP_MKNOD` | `settings.oci-defaults.capabilities.mknod` | true
+`CAP_NET_BIND_SERVICE` | `settings.oci-defaults.capabilities.net-bind-service` | true
+`CAP_SETGID` | `settings.oci-defaults.capabilities.setgid` | true
+`CAP_SETFCAP` | `settings.oci-defaults.capabilities.setfcap` | true
+`CAP_SETPCAP` | `settings.oci-defaults.capabilities.setpcap` | true
+`CAP_SETUID` | `settings.oci-defaults.capabilities.setuid` | true
+`CAP_SYS_CHROOT` | `settings.oci-defaults.capabilities.sys-chroot` | true
+`CAP_AUDIT_CONTROL` | `settings.oci-defaults.capabilities.audit-control` | -
+`CAP_AUDIT_READ` | `settings.oci-defaults.capabilities.audit-read` | -
+`CAP_BLOCK_SUSPEND` | `settings.oci-defaults.capabilities.block-suspend` | -
+`CAP_BPF` | `settings.oci-defaults.capabilities.bpf` | -
+`CAP_CHECKPOINT_RESTORE` | `settings.oci-defaults.capabilities.checkpoint-restore` | -
+`CAP_DAC_READ_SEARCH` | `settings.oci-defaults.capabilities.dac-read-search` | -
+`CAP_IPC_LOCK` | `settings.oci-defaults.capabilities.ipc-lock` | -
+`CAP_IPC_OWNER` | `settings.oci-defaults.capabilities.ipc-owner` | -
+`CAP_LEASE` | `settings.oci-defaults.capabilities.lease` | -
+`CAP_LINUX_IMMUTABLE` | `settings.oci-defaults.capabilities.linux-immutable` | -
+`CAP_MAC_ADMIN` | `settings.oci-defaults.capabilities.mac-admin` | -
+`CAP_MAC_OVERRIDE` | `settings.oci-defaults.capabilities.mac-override` | -
+`CAP_NET_ADMIN` | `settings.oci-defaults.capabilities.net-admin` | -
+`CAP_NET_BROADCAST` | `settings.oci-defaults.capabilities.net-broadcast` | -
+`CAP_NET_RAW` | `settings.oci-defaults.capabilities.net-raw` | -
+`CAP_PERFMON` | `settings.oci-defaults.capabilities.perfmon` | -
+`CAP_SYS_ADMIN` | `settings.oci-defaults.capabilities.sys-admin` | -
+`CAP_SYS_BOOT` | `settings.oci-defaults.capabilities.sys-boot` | -
+`CAP_SYS_MODULE` | `settings.oci-defaults.capabilities.sys-module` | -
+`CAP_SYS_NICE` | `settings.oci-defaults.capabilities.sys-nice` | -
+`CAP_SYS_PACCT` | `settings.oci-defaults.capabilities.sys-pacct` | -
+`CAP_SYS_PTRACE` | `settings.oci-defaults.capabilities.sys-ptrace` | -
+`CAP_SYS_RAWIO` | `settings.oci-defaults.capabilities.sys-rawio` | -
+`CAP_SYS_RESOURCE` | `settings.oci-defaults.capabilities.sys-resource` | -
+`CAP_SYS_TIME` | `settings.oci-defaults.capabilities.sys-time` | -
+`CAP_SYS_TTY_CONFIG` | `settings.oci-defaults.capabilities.sys-tty-config` | -
+`CAP_SYSLOG` | `settings.oci-defaults.capabilities.syslog` | -
+`CAP_WAKE_ALARM` | `settings.oci-defaults.capabilities.wake-alarm` | -
+
+##### OCI Defaults: Resource Limits
+
+Each of the `resource-limits` settings below contain two numeric fields: `hard-limit` and `soft-limit`, which are **32-bit unsigned integers**.
+
+Please see the [`getrlimit` linux manpage](https://man7.org/linux/man-pages/man7/capabilities.7.html) for meanings of `hard-limit` and `soft-limit`.
+
+The full list of resource limits that can be configured in Bottlerocket are:
+
+resource limit | setting | default value
+----- | ----- | -----
+`RLIMIT_NOFILE` | `settings.oci-defaults.resource-limits.max-open-files.hard-limit` | 1048576
+`RLIMIT_NOFILE` | `settings.oci-defaults.resource-limits.max-open-files.soft-limit` | 65536
 
 #### Container image registry settings
 
@@ -615,9 +714,10 @@ The following setting is optional and allows you to configure image registry cre
 
 * `settings.container-registry.credentials`: An array of container images registry credential settings. Each element specifies the registry and the credential information for said registry.
 The credential fields map to [containerd's registry credential fields](https://github.com/containerd/containerd/blob/v1.6.0/docs/cri/registry.md#configure-registry-credentials), which in turn map to the fields in `.docker/config.json`.
-It is recommended to programmatically set these settings via `apiclient` through the Bottlerocket control container and/or custom host-containers.
 
-  An example `apiclient` call to set registry credentials for `gcr.io` and `docker.io` looks like this:
+  To avoid storing plaintext credentials in external systems, it is recommended to programmatically apply these settings via `apiclient` using a [bootstrap container](#bootstrap-containers-settings) or [host container](#host-containers-settings).
+
+  Example `apiclient` call to set registry credentials for `gcr.io` and `docker.io`:
 
   ```shell
   apiclient set --json '{
@@ -635,6 +735,18 @@ It is recommended to programmatically set these settings via `apiclient` through
       ]
     }
   }'
+  ```
+
+  Example user data for setting up image registry credentials:
+  ```toml
+  [[settings.container-registry.credentials]]
+  registry = "docker.io"
+  username = "foo"
+  password = "bar"
+
+  [[settings.container-registry.credentials]]
+  registry = "gcr.io"
+  auth = "example_base64_encoded_auth_string"
   ```
 
 In addition to the container runtime daemons, these credential settings will also apply to [host-container](#host-containers-settings) and [bootstrap-container](#bootstrap-containers-settings) image pulls as well.
@@ -1011,6 +1123,8 @@ They can be overridden for testing purposes in [the same way as other settings](
   ```
 
   **Note**: If `settings.aws.profile` is not set, the setting will fallback to the "default" profile.
+  In general it is recommended not to include a `[profile default]` section in the `aws.config` contents though.
+  This may have unintended side effects for other AWS services running on the node (e.g. `aws-iam-authenticator`).
 
   **Note:** The `config`, `credentials`, and `profile` are optional and do not need to be set when using an Instance Profile when running on an AWS instance.
 
@@ -1091,7 +1205,7 @@ RPM itself is not in the image - it's just a common and convenient package defin
 
 We currently package the following major third-party components:
 
-* Linux kernel ([background](https://en.wikipedia.org/wiki/Linux), [packaging](packages/kernel-5.4/))
+* Linux kernel ([background](https://en.wikipedia.org/wiki/Linux), [5.10 packaging](packages/kernel-5.10/), [5.15 packaging](packages/kernel-5.15/))
 * glibc ([background](https://www.gnu.org/software/libc/), [packaging](packages/glibc/))
 * Buildroot as build toolchain ([background](https://buildroot.org/), via the [SDK](https://github.com/bottlerocket-os/bottlerocket-sdk))
 * GRUB, with patches for partition flip updates ([background](https://www.gnu.org/software/grub/), [packaging](packages/grub/))

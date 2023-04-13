@@ -7,8 +7,8 @@ use aws_sdk_ssm::output::{GetParametersOutput, PutParameterOutput};
 use aws_sdk_ssm::types::SdkError;
 use aws_sdk_ssm::{Client as SsmClient, Region};
 use futures::future::{join, ready};
-use futures::stream::{self, StreamExt};
-use log::{debug, error, trace, warn};
+use futures::stream::{self, FuturesUnordered, StreamExt};
+use log::{debug, error, info, trace, warn};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -43,7 +43,7 @@ where
             let len = names_chunk.len();
             let get_future = ssm_client
                 .get_parameters()
-                .set_names(Some(names_chunk.to_vec()))
+                .set_names((!names_chunk.is_empty()).then_some(names_chunk.to_vec().clone()))
                 .send();
 
             // Store the region so we can include it in errors and the output map
@@ -135,6 +135,88 @@ where
     Ok(parameters)
 }
 
+/// Fetches all SSM parameters under a given prefix using the given clients
+pub(crate) async fn get_parameters_by_prefix<'a>(
+    clients: &'a HashMap<Region, SsmClient>,
+    ssm_prefix: &str,
+) -> HashMap<&'a Region, Result<SsmParameters>> {
+    // Build requests for parameters; we have to request with a regional client so we split them by
+    // region
+    let mut requests = Vec::with_capacity(clients.len());
+    for region in clients.keys() {
+        trace!("Requesting parameters in {}", region);
+        let ssm_client: &SsmClient = &clients[region];
+        let get_future = get_parameters_by_prefix_in_region(region, ssm_client, ssm_prefix);
+
+        requests.push(join(ready(region), get_future));
+    }
+
+    // Send requests in parallel and wait for responses, collecting results into a list.
+    requests
+        .into_iter()
+        .collect::<FuturesUnordered<_>>()
+        .collect()
+        .await
+}
+
+/// Fetches all SSM parameters under a given prefix in a single region
+pub(crate) async fn get_parameters_by_prefix_in_region(
+    region: &Region,
+    client: &SsmClient,
+    ssm_prefix: &str,
+) -> Result<SsmParameters> {
+    info!("Retrieving SSM parameters in {}", region.to_string());
+    let mut parameters = HashMap::new();
+
+    // Send the request
+    let mut get_future = client
+        .get_parameters_by_path()
+        .path(ssm_prefix)
+        .recursive(true)
+        .into_paginator()
+        .send();
+
+    // Iterate over the retrieved parameters
+    while let Some(page) = get_future.next().await {
+        let retrieved_parameters = page
+            .context(error::GetParametersByPathSnafu {
+                path: ssm_prefix,
+                region: region.to_string(),
+            })?
+            .parameters()
+            .unwrap_or_default()
+            .to_owned();
+        for parameter in retrieved_parameters {
+            // Insert a new key-value pair into the map, with the key containing region and parameter name
+            // and the value containing the parameter value
+            parameters.insert(
+                SsmKey::new(
+                    region.to_owned(),
+                    parameter
+                        .name()
+                        .ok_or(error::Error::MissingField {
+                            region: region.to_string(),
+                            field: "name".to_string(),
+                        })?
+                        .to_owned(),
+                ),
+                parameter
+                    .value()
+                    .ok_or(error::Error::MissingField {
+                        region: region.to_string(),
+                        field: "value".to_string(),
+                    })?
+                    .to_owned(),
+            );
+        }
+    }
+    info!(
+        "SSM parameters in {} have been retrieved",
+        region.to_string()
+    );
+    Ok(parameters)
+}
+
 /// Sets the values of the given SSM keys using the given clients
 pub(crate) async fn set_parameters(
     parameters_to_set: &SsmParameters,
@@ -148,7 +230,7 @@ pub(crate) async fn set_parameters(
 
     // We run all requests in a batch, and any failed requests are added to the next batch for
     // retry
-    let mut failed_parameters: HashMap<Region, Vec<(String, SdkError<_>)>> = HashMap::new();
+    let mut failed_parameters: HashMap<Region, Vec<(String, String)>> = HashMap::new();
     let max_failures = 5;
 
     /// Stores the values we need to be able to retry requests
@@ -235,11 +317,13 @@ pub(crate) async fn set_parameters(
         // For each error response, check if we should retry or bail.
         for (context, response) in responses {
             if let Err(e) = response {
-                // Throttling errors in Rusoto are structured like this:
-                // RusotoError::Unknown(BufferedHttpResponse {status: 400, body: "{\"__type\":\"ThrottlingException\",\"message\":\"Rate exceeded\"}", headers: ...})
-                // Even if we were to do a structural match, we would still have to string match
-                // the body of the error.  Simpler to match the string form.
-                if e.to_string().contains("ThrottlingException") {
+                // Throttling errors are not currently surfaced in AWS SDK Rust, doing a string match is best we can do
+                let error_type = e
+                    .into_service_error()
+                    .code()
+                    .unwrap_or("unknown")
+                    .to_owned();
+                if error_type.contains("ThrottlingException") {
                     // We only want to increase the interval once per loop, not once per error,
                     // because when you get throttled you're likely to get a bunch of throttling
                     // errors at once.
@@ -253,7 +337,7 @@ pub(crate) async fn set_parameters(
                     failed_parameters
                         .entry(context.region.clone())
                         .or_default()
-                        .push((context.name.to_string(), e));
+                        .push((context.name.to_string(), error_type));
                 } else {
                     // Increase failure counter and try again.
                     let context = RequestContext {
@@ -262,7 +346,7 @@ pub(crate) async fn set_parameters(
                     };
                     debug!(
                         "Request attempt {} of {} failed in {}: {}",
-                        context.failures, max_failures, context.region, e
+                        context.failures, max_failures, context.region, error_type
                     );
                     contexts.push(context);
                 }
@@ -322,21 +406,37 @@ pub(crate) async fn validate_parameters(
     Ok(())
 }
 
-mod error {
-    use aws_sdk_ssm::error::GetParametersError;
+pub(crate) mod error {
+    use aws_sdk_ssm::error::{GetParametersByPathError, GetParametersError};
     use aws_sdk_ssm::types::SdkError;
     use snafu::Snafu;
+    use std::error::Error as _;
     use std::time::Duration;
 
     #[derive(Debug, Snafu)]
     #[snafu(visibility(pub(super)))]
     #[allow(clippy::large_enum_variant)]
-    pub(crate) enum Error {
-        #[snafu(display("Failed to fetch SSM parameters in {}: {}", region, source))]
+    pub enum Error {
+        #[snafu(display("Failed to fetch SSM parameters in {}: {}", region, source.source().map(|x| x.to_string()).unwrap_or("unknown".to_string())))]
         GetParameters {
             region: String,
             source: SdkError<GetParametersError>,
         },
+
+        #[snafu(display(
+            "Failed to fetch SSM parameters by path {} in {}: {}",
+            path,
+            region,
+            source
+        ))]
+        GetParametersByPath {
+            path: String,
+            region: String,
+            source: SdkError<GetParametersByPathError>,
+        },
+
+        #[snafu(display("Missing field in parameter in {}: {}", region, field))]
+        MissingField { region: String, field: String },
 
         #[snafu(display("Response to {} was missing {}", request_type, missing))]
         MissingInResponse {
@@ -366,4 +466,4 @@ mod error {
     }
 }
 pub(crate) use error::Error;
-type Result<T> = std::result::Result<T, error::Error>;
+pub(crate) type Result<T> = std::result::Result<T, error::Error>;

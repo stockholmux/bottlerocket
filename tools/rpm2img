@@ -126,6 +126,11 @@ VERITY_HASH_ALGORITHM=sha256
 VERITY_DATA_BLOCK_SIZE=4096
 VERITY_HASH_BLOCK_SIZE=4096
 
+# Bottlerocket has been experimentally shown to boot faster on EBS volumes when striping the root filesystem into 4MiB stripes.
+# We use 4kb ext4 blocks. The stride and stripe should both be $STRIPE_SIZE / $EXT4_BLOCK_SIZE
+ROOT_STRIDE=1024
+ROOT_STRIPE_WIDTH=1024
+
 case "${PARTITION_PLAN}" in
   split)
     truncate -s "${OS_IMAGE_SIZE_GIB}G" "${OS_IMAGE}"
@@ -136,22 +141,23 @@ case "${PARTITION_PLAN}" in
     ;;
 esac
 
-declare -A partlabel parttype partsize partoff
+declare -A partlabel parttype partguid partsize partoff
 set_partition_sizes \
   "${OS_IMAGE_SIZE_GIB}" "${DATA_IMAGE_SIZE_GIB}" "${PARTITION_PLAN}" \
   partsize partoff
 set_partition_labels partlabel
 set_partition_types parttype
+set_partition_uuids partguid "${PARTITION_PLAN}"
 
 declare -a partargs
 for part in \
   BIOS \
   EFI-A BOOT-A ROOT-A HASH-A RESERVED-A \
   EFI-B BOOT-B ROOT-B HASH-B RESERVED-B \
-  PRIVATE DATA ;
+  PRIVATE DATA-A DATA-B ;
 do
-  # We only append the data partition if we're using the unified layout.
-  if [ "${part}" == "DATA" ] && [ "${PARTITION_PLAN}" != "unified" ] ; then
+  # We create the DATA-B partition separately if we're using the split layout
+  if [ "${part}" == "DATA-B" ] ; then
     continue
   fi
 
@@ -166,6 +172,7 @@ do
   partargs+=(-n "0:${part_start}M:${part_end}")
   partargs+=(-c "0:${partlabel[${part}]}")
   partargs+=(-t "0:${parttype[${part}]}")
+  partargs+=(-u "0:${partguid[${part}]:-R}")
 
   # Boot partition attributes:
   #  48 = gptprio priority bit
@@ -180,13 +187,14 @@ sgdisk --clear "${partargs[@]}" --sort --print "${OS_IMAGE}"
 
 # Partition the separate data disk, if we're using the split layout.
 if [ "${PARTITION_PLAN}" == "split" ] ; then
-  data_start="${partoff[DATA]}"
-  data_end=$((data_start + partsize[DATA]))
+  data_start="${partoff[DATA-B]}"
+  data_end=$((data_start + partsize[DATA-B]))
   data_end=$((data_end * 2048 - 1))
   sgdisk --clear \
     -n "0:${data_start}M:${data_end}" \
-    -c "0:${partlabel[DATA]}" \
-    -t "0:${parttype[DATA]}" \
+    -c "0:${partlabel[DATA-B]}" \
+    -t "0:${parttype[DATA-B]}" \
+    -u "0:${partguid[DATA-B]}" \
     --sort --print "${DATA_IMAGE}"
 fi
 
@@ -279,7 +287,8 @@ mkdir -p "${ROOT_MOUNT}/lost+found"
 ROOT_LABELS=$(setfiles -n -d -F -m -r "${ROOT_MOUNT}" \
     "${SELINUX_FILE_CONTEXTS}" "${ROOT_MOUNT}" \
     | awk -v root="${ROOT_MOUNT}" '{gsub(root"/","/"); gsub(root,"/"); print "ea_set", $1, "security.selinux", $4}')
-mkfs.ext4 -O ^has_journal -b "${VERITY_DATA_BLOCK_SIZE}" -d "${ROOT_MOUNT}" "${ROOT_IMAGE}" "${partsize[ROOT-A]}M"
+mkfs.ext4 -E "lazy_itable_init=0,stride=${ROOT_STRIDE},stripe_width=${ROOT_STRIPE_WIDTH}" \
+  -O ^has_journal -b "${VERITY_DATA_BLOCK_SIZE}" -d "${ROOT_MOUNT}" "${ROOT_IMAGE}" "${partsize[ROOT-A]}M"
 echo "${ROOT_LABELS}" | debugfs -w -f - "${ROOT_IMAGE}"
 resize2fs -M "${ROOT_IMAGE}"
 dd if="${ROOT_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff[ROOT-A]}"
@@ -307,11 +316,31 @@ VERITY_SALT="$(grep '^Salt:' <<<"${veritysetup_output}" | awk '{ print $NF }')"
 veritysetup verify "${ROOT_IMAGE}" "${VERITY_IMAGE}" "${VERITY_ROOT_HASH}"
 dd if="${VERITY_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff[HASH-A]}"
 
+declare -a DM_VERITY_ROOT
+DM_VERITY_ROOT=(
+  "root,,,ro,0"
+  "${VERITY_DATA_512B_BLOCKS}"
+  "verity"
+  "${VERITY_VERSION}"
+  "PARTUUID=\$boot_uuid/PARTNROFF=1"
+  "PARTUUID=\$boot_uuid/PARTNROFF=2"
+  "${VERITY_DATA_BLOCK_SIZE}"
+  "${VERITY_HASH_BLOCK_SIZE}"
+  "${VERITY_DATA_4K_BLOCKS}"
+  "1"
+  "${VERITY_HASH_ALGORITHM}"
+  "${VERITY_ROOT_HASH}"
+  "${VERITY_SALT}"
+  "2"
+  "restart_on_corruption"
+  "ignore_zero_blocks"
+)
+
 # write GRUB config
 # If GRUB_SET_PRIVATE_VAR is set, include the parameters that support Boot Config
 if [ "${GRUB_SET_PRIVATE_VAR}" == "yes" ] ; then
    BOOTCONFIG='bootconfig'
-   INITRD='initrd ($private)/bootconfig.data'
+   INITRD="initrd (\$private)/bootconfig.data"
 else
    BOOTCONFIG=""
    INITRD=""
@@ -320,6 +349,7 @@ fi
 cat <<EOF > "${BOOT_MOUNT}/grub/grub.cfg"
 set default="0"
 set timeout="0"
+set dm_verity_root="${DM_VERITY_ROOT[@]}"
 
 menuentry "${PRETTY_NAME} ${VERSION_ID}" {
    linux (\$root)/vmlinuz \\
@@ -327,13 +357,13 @@ menuentry "${PRETTY_NAME} ${VERSION_ID}" {
        ${BOOTCONFIG} \\
        root=/dev/dm-0 rootwait ro \\
        raid=noautodetect \\
-       random.trust_cpu=on selinux=1 enforcing=1 \\
-       dm_verity.max_bios=-1 dm_verity.dev_wait=1 \\
-       dm-mod.create="root,,,ro,0 $VERITY_DATA_512B_BLOCKS verity $VERITY_VERSION PARTUUID=\$boot_uuid/PARTNROFF=1 PARTUUID=\$boot_uuid/PARTNROFF=2 \\
-       $VERITY_DATA_BLOCK_SIZE $VERITY_HASH_BLOCK_SIZE $VERITY_DATA_4K_BLOCKS 1 $VERITY_HASH_ALGORITHM $VERITY_ROOT_HASH $VERITY_SALT \\
-       2 restart_on_corruption ignore_zero_blocks" \\
+       random.trust_cpu=on \\
+       selinux=1 enforcing=1 \\
+       dm-mod.create="\$dm_verity_root" \\
        -- \\
-       systemd.log_target=journal-or-kmsg systemd.log_color=0 systemd.show_status=true
+       systemd.log_target=journal-or-kmsg \\
+       systemd.log_color=0 \\
+       systemd.show_status=true
    ${INITRD}
 }
 EOF
@@ -362,7 +392,7 @@ cp /host/tools/bootconfig/empty-bootconfig.data "${PRIVATE_MOUNT}/bootconfig.dat
 mkfs.ext4 -b 4096 -i 4096 -I 256 -d "${PRIVATE_MOUNT}" "${PRIVATE_IMAGE}" "${partsize[PRIVATE]}M"
 dd if="${PRIVATE_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff[PRIVATE]}"
 
-# BOTTLEROCKET-DATA
+# BOTTLEROCKET-DATA-A and BOTTLEROCKET-DATA-B
 
 # If we build on a host with SELinux enabled, we could end up with labels that
 # do not match our policy. Since we allow replacing the data volume at runtime,
@@ -370,14 +400,34 @@ dd if="${PRIVATE_IMAGE}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff[PRI
 # remove them all.
 UNLABELED=$(find "${DATA_MOUNT}" \
     | awk -v root="${DATA_MOUNT}" '{gsub(root"/","/"); gsub(root,"/"); print "ea_rm", $1, "security.selinux"}')
-mkfs.ext4 -d "${DATA_MOUNT}" "${BOTTLEROCKET_DATA}" "${partsize[DATA]}M"
-echo "${UNLABELED}" | debugfs -w -f - "${BOTTLEROCKET_DATA}"
+
+mkfs_data() {
+  local target size offset
+  target="${1:?}"
+  size="${2:?}"
+  offset="${3:?}"
+  mkfs.ext4 -m 0 -d "${DATA_MOUNT}" "${BOTTLEROCKET_DATA}" "${size}"
+  echo "${UNLABELED}" | debugfs -w -f - "${BOTTLEROCKET_DATA}"
+  dd if="${BOTTLEROCKET_DATA}" of="${target}" conv=notrunc bs=1M seek="${offset}"
+}
+
+# Decide which data filesystem to create at build time based on layout.
+#
+# The DATA-A partition will always exist, but for the "split" layout, it will be
+# too small to provide the desired filesystem parameters (inode count, etc) when
+# it is grown later on. Hence this filesystem is only created for "unified".
+#
+# The DATA-B partition does not exist on the "unified" layout, which anticipates
+# a single storage device. Hence this filesystem is only created for "split".
+#
+# If the other partition is available at runtime, the filesystem will be created
+# during first boot instead, providing flexibility at the cost of a minor delay.
 case "${PARTITION_PLAN}" in
-  split)
-    dd if="${BOTTLEROCKET_DATA}" of="${DATA_IMAGE}" conv=notrunc bs=1M seek="${partoff[DATA]}"
-    ;;
   unified)
-    dd if="${BOTTLEROCKET_DATA}" of="${OS_IMAGE}" conv=notrunc bs=1M seek="${partoff[DATA]}"
+    mkfs_data "${OS_IMAGE}" "${partsize["DATA-A"]}M" "${partoff["DATA-A"]}"
+    ;;
+  split)
+    mkfs_data "${DATA_IMAGE}" "${partsize["DATA-B"]}M" "${partoff["DATA-B"]}"
     ;;
 esac
 

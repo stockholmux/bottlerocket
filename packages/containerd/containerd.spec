@@ -2,9 +2,9 @@
 %global gorepo containerd
 %global goimport %{goproject}/%{gorepo}
 
-%global gover 1.6.12
+%global gover 1.6.19
 %global rpmver %{gover}
-%global gitrev a05d175400b1145e5e6a735a6710579d181e7fb0
+%global gitrev 1e1ea6e986c6c86565bc33d52e34b81b3e2bc71f
 
 %global _dwz_low_mem_die_limit 0
 
@@ -20,6 +20,7 @@ Source2: containerd-config-toml_k8s
 Source3: containerd-config-toml_basic
 Source4: containerd-config-toml_k8s_nvidia
 Source5: containerd-tmpfiles.conf
+Source6: containerd-cri-base-json
 
 # For newer K8s variants (>=1.23) that uses `containerd.sock` as the container runtime socket
 # TODO: remove once we converge all k8s variants and deprecate dockershim.sock
@@ -34,12 +35,10 @@ Source110: prepare-var-lib-containerd.service
 
 Source1000: clarify.toml
 
-# TODO: submit this upstream, including a unit test.
-Patch1001: 1001-cri-set-default-RLIMIT_NOFILE.patch
-
 BuildRequires: git
 BuildRequires: %{_cross_os}glibc-devel
 Requires: %{_cross_os}runc
+Requires: %{_cross_os}pigz
 
 %description
 %{summary}.
@@ -85,7 +84,7 @@ install -p -m 0644 %{S:1} %{S:100} %{S:110} %{buildroot}%{_cross_unitdir}
 
 install -d %{buildroot}%{_cross_templatedir}
 install -d %{buildroot}%{_cross_factorydir}%{_cross_sysconfdir}/containerd
-install -p -m 0644 %{S:2} %{S:3} %{S:4} %{S:20} %{S:21} %{buildroot}%{_cross_templatedir}
+install -p -m 0644 %{S:2} %{S:3} %{S:4} %{S:6} %{S:20} %{S:21} %{buildroot}%{_cross_templatedir}
 
 install -d %{buildroot}%{_cross_tmpfilesdir}
 install -p -m 0644 %{S:5} %{buildroot}%{_cross_tmpfilesdir}/containerd.conf
@@ -106,6 +105,7 @@ install -p -m 0644 %{S:5} %{buildroot}%{_cross_tmpfilesdir}/containerd.conf
 %{_cross_unitdir}/prepare-var-lib-containerd.service
 %dir %{_cross_factorydir}%{_cross_sysconfdir}/containerd
 %{_cross_templatedir}/containerd-config-toml*
+%{_cross_templatedir}/containerd-cri-base-json
 %{_cross_tmpfilesdir}/containerd.conf
 
 %changelog

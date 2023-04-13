@@ -24,7 +24,7 @@ Summary: Container cluster management
 # base Apache-2.0, third_party Apache-2.0 AND BSD-3-Clause
 License: Apache-2.0 AND BSD-3-Clause
 URL: https://%{goimport}
-Source0: https://distro.eks.amazonaws.com/kubernetes-1-22/releases/13/artifacts/kubernetes/v%{gover}/kubernetes-src.tar.gz
+Source0: https://distro.eks.amazonaws.com/kubernetes-1-22/releases/19/artifacts/kubernetes/v%{gover}/kubernetes-src.tar.gz
 Source1: kubelet.service
 Source2: kubelet-env
 Source3: kubelet-config
@@ -37,7 +37,7 @@ Source9: kubelet-sysctl.conf
 Source10: prepare-var-lib-kubelet.service
 Source11: kubelet-server-crt
 Source12: kubelet-server-key
-Source13: etc-kubernetes-pki.mount
+Source13: etc-kubernetes-pki-private.mount
 Source14: credential-provider-config-yaml
 
 # ExecStartPre drop-ins
@@ -128,7 +128,7 @@ ln -rs \
 %{_cross_bindir}/kubelet
 %{_cross_unitdir}/kubelet.service
 %{_cross_unitdir}/prepare-var-lib-kubelet.service
-%{_cross_unitdir}/etc-kubernetes-pki.mount
+%{_cross_unitdir}/etc-kubernetes-pki-private.mount
 %dir %{_cross_unitdir}/kubelet.service.d
 %{_cross_unitdir}/kubelet.service.d/prestart-pull-pause-ctr.conf
 %{_cross_unitdir}/kubelet.service.d/make-kubelet-dirs.conf

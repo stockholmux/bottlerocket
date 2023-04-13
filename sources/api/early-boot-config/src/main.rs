@@ -10,8 +10,6 @@ Currently, Amazon EC2 is supported through the IMDSv1 HTTP API.  Data will be ta
 /etc/early-boot-config instead, if available, for testing purposes.
 */
 
-#![deny(rust_2018_idioms)]
-
 #[macro_use]
 extern crate log;
 
@@ -172,7 +170,8 @@ mod error {
         APIRequest {
             method: String,
             uri: String,
-            source: apiclient::Error,
+            #[snafu(source(from(apiclient::Error, Box::new)))]
+            source: Box<apiclient::Error>,
         },
 
         #[snafu(display("Provider error: {}", source))]

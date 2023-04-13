@@ -4,16 +4,18 @@ use crate::crds::{
 };
 use crate::error::{self, Result};
 use crate::migration::migration_crd;
-use crate::sonobuoy::sonobuoy_crd;
+use crate::sonobuoy::{sonobuoy_crd, workload_crd};
 use bottlerocket_types::agent_config::{
-    CreationPolicy, K8sVersion, VSphereK8sClusterConfig, VSphereK8sClusterInfo, VSphereVmConfig,
+    CreationPolicy, CustomUserData, K8sVersion, VSphereK8sClusterConfig, VSphereK8sClusterInfo,
+    VSphereVmConfig,
 };
 use maplit::btreemap;
-use model::{Crd, DestructionPolicy, SecretName};
 use pubsys_config::vmware::Datacenter;
-use snafu::OptionExt;
+use snafu::{OptionExt, ResultExt};
 use std::collections::BTreeMap;
+use std::iter::repeat_with;
 use std::str::FromStr;
+use testsys_model::{Crd, DestructionPolicy, SecretName};
 
 /// A `CrdCreator` responsible for creating crd related to `vmware-k8s` variants.
 pub(crate) struct VmwareK8sCreator {
@@ -34,7 +36,7 @@ impl CrdCreator for VmwareK8sCreator {
     /// Use standard naming conventions to predict the starting OVA.
     async fn starting_image_id(&self, crd_input: &CrdInput) -> Result<String> {
         Ok(format!(
-            "bottlerocket-{}-{}-{}",
+            "bottlerocket-{}-{}-{}.ova",
             crd_input.variant,
             crd_input.arch,
             crd_input
@@ -119,7 +121,15 @@ impl CrdCreator for VmwareK8sCreator {
             .vcenter_workload_folder(&self.datacenter.folder)
             .mgmt_cluster_kubeconfig_base64(&self.encoded_mgmt_cluster_kubeconfig)
             .set_conflicts_with(Some(existing_clusters))
-            .destruction_policy(DestructionPolicy::OnTestSuccess)
+            .destruction_policy(
+                cluster_input
+                    .crd_input
+                    .config
+                    .dev
+                    .cluster_destruction_policy
+                    .to_owned()
+                    .unwrap_or(DestructionPolicy::OnTestSuccess),
+            )
             .image(
                 cluster_input
                     .crd_input
@@ -149,9 +159,8 @@ impl CrdCreator for VmwareK8sCreator {
             ))
             .privileged(true)
             .build(cluster_input.cluster_name)
-            .map_err(|e| error::Error::Build {
-                what: "vSphere K8s cluster CRD".to_string(),
-                error: e.to_string(),
+            .context(error::BuildSnafu {
+                what: "vSphere K8s cluster CRD",
             })?;
         Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Resource(
             vsphere_k8s_crd,
@@ -179,8 +188,9 @@ impl CrdCreator for VmwareK8sCreator {
             .existing_crds(&labels, &["testsys/type", "testsys/cluster"])
             .await?;
 
+        let suffix: String = repeat_with(fastrand::lowercase).take(4).collect();
         let vsphere_vm_crd = VSphereVmConfig::builder()
-            .ova_name(self.image_id(bottlerocket_input.crd_input)?)
+            .ova_name(bottlerocket_input.image_id)
             .tuf_repo(bottlerocket_input.crd_input.tuf_repo_config().context(
                 error::InvalidSnafu {
                     what: "TUF repo information is required for Bottlerocket vSphere VM creation.",
@@ -197,10 +207,24 @@ impl CrdCreator for VmwareK8sCreator {
                 control_plane_endpoint_ip: format!("${{{}.endpoint}}", cluster_name),
                 kubeconfig_base64: format!("${{{}.encodedKubeconfig}}", cluster_name),
             })
+            .custom_user_data(
+                bottlerocket_input
+                    .crd_input
+                    .encoded_userdata()?
+                    .map(|encoded_userdata| CustomUserData::Merge { encoded_userdata }),
+            )
             .assume_role(bottlerocket_input.crd_input.config.agent_role.clone())
             .set_labels(Some(labels))
             .set_conflicts_with(Some(existing_clusters))
-            .destruction_policy(DestructionPolicy::OnTestSuccess)
+            .destruction_policy(
+                bottlerocket_input
+                    .crd_input
+                    .config
+                    .dev
+                    .bottlerocket_destruction_policy
+                    .to_owned()
+                    .unwrap_or(DestructionPolicy::OnTestSuccess),
+            )
             .image(
                 bottlerocket_input
                     .crd_input
@@ -227,13 +251,9 @@ impl CrdCreator for VmwareK8sCreator {
                     .collect(),
             ))
             .depends_on(cluster_name)
-            .build(format!(
-                "{}-vms-{}",
-                cluster_name, bottlerocket_input.test_type
-            ))
-            .map_err(|e| error::Error::Build {
-                what: "vSphere VM CRD".to_string(),
-                error: e.to_string(),
+            .build(format!("{}-vms-{}", cluster_name, suffix))
+            .context(error::BuildSnafu {
+                what: "vSphere VM CRD",
             })?;
         Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Resource(
             vsphere_vm_crd,
@@ -255,6 +275,12 @@ impl CrdCreator for VmwareK8sCreator {
 
     async fn test_crd<'a>(&self, test_input: TestInput<'a>) -> Result<CreateCrdOutput> {
         Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Test(sonobuoy_crd(
+            test_input,
+        )?))))
+    }
+
+    async fn workload_crd<'a>(&self, test_input: TestInput<'a>) -> Result<CreateCrdOutput> {
+        Ok(CreateCrdOutput::NewCrd(Box::new(Crd::Test(workload_crd(
             test_input,
         )?))))
     }

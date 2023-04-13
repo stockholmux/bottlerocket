@@ -1,7 +1,7 @@
 [package]
 name = "release"
 version = "0.0.0"
-edition = "2018"
+edition = "2021"
 publish = false
 build = "build.rs"
 
@@ -23,6 +23,7 @@ containerd = { path = "../containerd" }
 coreutils = { path = "../coreutils" }
 dbus-broker = { path = "../dbus-broker" }
 e2fsprogs = { path = "../e2fsprogs" }
+ethtool = { path = "../ethtool" }
 filesystem = { path = "../filesystem" }
 findutils = { path = "../findutils" }
 glibc = { path = "../glibc" }
@@ -33,6 +34,7 @@ hotdog = { path = "../hotdog" }
 iproute = { path = "../iproute" }
 iptables = { path = "../iptables" }
 kexec-tools = { path = "../../packages/kexec-tools" }
+keyutils = { path = "../keyutils" }
 libaudit = { path = "../libaudit" }
 libgcc = { path = "../libgcc" }
 libstd-rust = { path = "../libstd-rust" }

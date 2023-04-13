@@ -156,7 +156,14 @@ pub(crate) async fn run(args: &Args, publish_args: &PublishArgs) -> Result<()> {
 
     // If AMIs aren't in "available" state, we can get a DescribeImages response that includes
     // most of the data we need, but not snapshot IDs.
-    info!("Waiting for AMIs to be available...");
+    if amis.len() == 1 {
+        info!("Waiting for AMI to be available before changing its permissions")
+    } else {
+        info!(
+            "Waiting for all {} AMIs to be available before changing any of their permissions",
+            amis.len(),
+        );
+    }
     let mut wait_requests = Vec::with_capacity(amis.len());
     for (region, image) in &amis {
         let wait_future = wait_for_ami(&image.id, region, &base_region, "available", 1, &aws);
@@ -180,7 +187,10 @@ pub(crate) async fn run(args: &Args, publish_args: &PublishArgs) -> Result<()> {
     let snapshots = get_regional_snapshots(&amis, &ec2_clients).await?;
     trace!("Found snapshots: {:?}", snapshots);
 
-    info!("Updating snapshot permissions - {}", description);
+    info!(
+        "Updating all snapshot permissions before changing any AMI permissions - {}",
+        description
+    );
     modify_regional_snapshots(
         &publish_args.modify_opts,
         &operation,
@@ -189,7 +199,7 @@ pub(crate) async fn run(args: &Args, publish_args: &PublishArgs) -> Result<()> {
     )
     .await?;
 
-    info!("Updating image permissions - {}", description);
+    info!("Updating AMI permissions - {}", description);
     let ami_ids = amis
         .into_iter()
         .map(|(region, image)| (region, image.id))
@@ -321,8 +331,12 @@ pub(crate) async fn modify_snapshots(
         let response_future = ec2_client
             .modify_snapshot_attribute()
             .set_attribute(Some(SnapshotAttributeName::CreateVolumePermission))
-            .set_user_ids(Some(modify_opts.user_ids.clone()))
-            .set_group_names(Some(modify_opts.group_names.clone()))
+            .set_user_ids(
+                (!modify_opts.user_ids.is_empty()).then_some(modify_opts.user_ids.clone()),
+            )
+            .set_group_names(
+                (!modify_opts.group_names.is_empty()).then_some(modify_opts.group_names.clone()),
+            )
             .set_operation_type(Some(operation.clone()))
             .set_snapshot_id(Some(snapshot_id.clone()))
             .send();
@@ -389,12 +403,14 @@ pub(crate) async fn modify_regional_snapshots(
             }
             Err(e) => {
                 error_count += 1;
-                error!(
-                    "Failed to modify permissions in {} for snapshots [{}]: {}",
-                    region.as_ref(),
-                    snapshot_ids.join(", "),
-                    e
-                );
+                if let Error::ModifyImageAttribute { source: err, .. } = e {
+                    error!(
+                        "Failed to modify permissions in {} for snapshots [{}]: {:?}",
+                        region.as_ref(),
+                        snapshot_ids.join(", "),
+                        err.into_service_error().code().unwrap_or("unknown"),
+                    );
+                }
             }
         }
     }
@@ -423,10 +439,18 @@ pub(crate) async fn modify_image(
         .set_attribute(Some(
             ImageAttributeName::LaunchPermission.as_ref().to_string(),
         ))
-        .set_user_ids(Some(modify_opts.user_ids.clone()))
-        .set_user_groups(Some(modify_opts.group_names.clone()))
-        .set_organization_arns(Some(modify_opts.organization_arns.clone()))
-        .set_organizational_unit_arns(Some(modify_opts.organizational_unit_arns.clone()))
+        .set_user_ids((!modify_opts.user_ids.is_empty()).then_some(modify_opts.user_ids.clone()))
+        .set_user_groups(
+            (!modify_opts.group_names.is_empty()).then_some(modify_opts.group_names.clone()),
+        )
+        .set_organization_arns(
+            (!modify_opts.organization_arns.is_empty())
+                .then_some(modify_opts.organization_arns.clone()),
+        )
+        .set_organizational_unit_arns(
+            (!modify_opts.organizational_unit_arns.is_empty())
+                .then_some(modify_opts.organizational_unit_arns.clone()),
+        )
         .set_operation_type(Some(operation.clone()))
         .set_image_id(Some(image_id.to_string()))
         .send()
@@ -473,7 +497,9 @@ pub(crate) async fn modify_regional_images(
                 error_count += 1;
                 error!(
                     "Modifying permissions of {} in {} failed: {}",
-                    image_id, region, e
+                    image_id,
+                    region,
+                    e.into_service_error().code().unwrap_or("unknown"),
                 );
             }
         }
@@ -597,6 +623,38 @@ mod error {
             region: String,
             source: ami::wait::Error,
         },
+    }
+
+    impl Error {
+        /// The number of AMIs that have had their permissions successfully changed.
+        pub(crate) fn amis_affected(&self) -> u16 {
+            match self {
+                // We list all of these variants so that future editors of the code will have to
+                // look at this and decide whether or not their new error variant might have
+                // modified any AMI permissions.
+                Error::Config { .. }
+                | Error::DescribeImages { .. }
+                | Error::Deserialize { .. }
+                | Error::File { .. }
+                | Error::Input { .. }
+                | Error::MissingConfig { .. }
+                | Error::MissingImage { .. }
+                | Error::MissingInResponse { .. }
+                | Error::ModifyImageAttribute { .. }
+                | Error::ModifyImageAttributes { .. }
+                | Error::ModifySnapshotAttributes { .. }
+                | Error::MultipleImages { .. }
+                | Error::UnknownRegions { .. }
+                | Error::WaitAmi { .. } => 0u16,
+
+                // If an error occurs during the modify AMI permissions loop, then some AMIs may
+                // have been affected.
+                Error::ModifyImagesAttributes {
+                    error_count: _,
+                    success_count,
+                } => *success_count,
+            }
+        }
     }
 }
 pub(crate) use error::Error;

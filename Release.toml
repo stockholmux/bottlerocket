@@ -1,4 +1,4 @@
-version = "1.12.0"
+version = "1.14.0"
 
 [migrations]
 "(0.3.1, 0.3.2)" = ["migrate_v0.3.2_admin-container-v0-5-0.lz4"]
@@ -173,4 +173,27 @@ version = "1.12.0"
 "(1.11.0, 1.11.1)" = []
 "(1.11.1, 1.12.0)" = [
     "migrate_v1.12.0_k8s-private-pki-path.lz4",
+    "migrate_v1.12.0_add-k8s-autoscaling-warm-pool-setting.lz4",
+    "migrate_v1.12.0_add-k8s-autoscaling-warm-pool-setting-metadata.lz4",
+    "migrate_v1.12.0_oci-defaults-setting.lz4",
+    "migrate_v1.12.0_oci-defaults-setting-metadata.lz4",
+    "migrate_v1.12.0_aws-admin-container-v0-9-4.lz4",
+    "migrate_v1.12.0_public-admin-container-v0-9-4.lz4",
+    "migrate_v1.12.0_aws-control-container-v0-7-0.lz4",
+    "migrate_v1.12.0_public-control-container-v0-7-0.lz4",
+]
+"(1.12.0, 1.13.0)" = [
+    "migrate_v1.13.0_k8s-registry.lz4",
+    "migrate_v1.13.0_aws-admin-container-v0-10-0.lz4",
+    "migrate_v1.13.0_public-admin-container-v0-10-0.lz4",
+    "migrate_v1.13.0_aws-control-container-v0-7-1.lz4",
+    "migrate_v1.13.0_public-control-container-v0-7-1.lz4",
+]
+"(1.13.0, 1.13.1)" = [
+    "migrate_v1.13.1_aws-profile-cred-provider.lz4",
+]
+"(1.13.1, 1.13.2)" = []
+"(1.13.2, 1.13.3)" = []
+"(1.13.3, 1.14.0)" = [
+    "migrate_v1.14.0_kubernetes-gc-percent-type-change.lz4"
 ]

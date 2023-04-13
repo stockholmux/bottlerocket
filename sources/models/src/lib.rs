@@ -19,35 +19,55 @@ Entries are sorted by filename, and later entries take precedence.
 
 The `#[model]` attribute on Settings and its sub-structs reduces duplication and adds some required metadata; see [its docs](model-derive/) for details.
 
-## aws-k8s-1.21: Kubernetes 1.21
-
-* [Model](src/aws-k8s-1.22/mod.rs)
-* [Default settings](src/aws-k8s-1.22/defaults.d/)
-
-### aws-k8s-1.21-nvidia: Kubernetes 1.21 NVIDIA
-
-* [Model](src/aws-k8s-1.22-nvidia/mod.rs)
-* [Default settings](src/aws-k8s-1.22-nvidia/defaults.d/)
-
 ## aws-k8s-1.22: Kubernetes 1.22
 
 * [Model](src/aws-k8s-1.22/mod.rs)
 * [Default settings](src/aws-k8s-1.22/defaults.d/)
 
-### aws-k8s-1.22-nvidia: Kubernetes 1.22 NVIDIA
+## aws-k8s-1.22-nvidia: Kubernetes 1.22 NVIDIA
 
 * [Model](src/aws-k8s-1.22-nvidia/mod.rs)
 * [Default settings](src/aws-k8s-1.22-nvidia/defaults.d/)
 
 ## aws-k8s-1.23: Kubernetes 1.23
 
-* [Model](src/aws-k8s-1.23/mod.rs)
-* [Default settings](src/aws-k8s-1.23/defaults.d/)
+* [Model](src/aws-k8s-1.26/mod.rs)
+* [Default settings](src/aws-k8s-1.26/defaults.d/)
 
-### aws-k8s-1.23-nvidia: Kubernetes 1.23 NVIDIA
+## aws-k8s-1.23-nvidia: Kubernetes 1.23 NVIDIA
 
-* [Model](src/aws-k8s-1.23-nvidia/mod.rs)
-* [Default settings](src/aws-k8s-1.23-nvidia/defaults.d/)
+* [Model](src/aws-k8s-1.26-nvidia/mod.rs)
+* [Default settings](src/aws-k8s-1.26-nvidia/defaults.d/)
+
+## aws-k8s-1.24: Kubernetes 1.24
+
+* [Model](src/aws-k8s-1.26/mod.rs)
+* [Default settings](src/aws-k8s-1.26/defaults.d/)
+
+## aws-k8s-1.24-nvidia: Kubernetes 1.24 NVIDIA
+
+* [Model](src/aws-k8s-1.26-nvidia/mod.rs)
+* [Default settings](src/aws-k8s-1.26-nvidia/defaults.d/)
+
+## aws-k8s-1.25: Kubernetes 1.25
+
+* [Model](src/aws-k8s-1.26/mod.rs)
+* [Default settings](src/aws-k8s-1.26/defaults.d/)
+
+## aws-k8s-1.25-nvidia: Kubernetes 1.25 NVIDIA
+
+* [Model](src/aws-k8s-1.26-nvidia/mod.rs)
+* [Default settings](src/aws-k8s-1.26-nvidia/defaults.d/)
+
+## aws-k8s-1.26: Kubernetes 1.26
+
+* [Model](src/aws-k8s-1.26/mod.rs)
+* [Default settings](src/aws-k8s-1.26/defaults.d/)
+
+## aws-k8s-1.26-nvidia: Kubernetes 1.26 NVIDIA
+
+* [Model](src/aws-k8s-1.26-nvidia/mod.rs)
+* [Default settings](src/aws-k8s-1.26-nvidia/defaults.d/)
 
 ## aws-ecs-1: Amazon ECS
 
@@ -64,11 +84,6 @@ The `#[model]` attribute on Settings and its sub-structs reduces duplication and
 * [Model](src/vmware-dev/mod.rs)
 * [Default settings](src/vmware-dev/defaults.d/)
 
-## vmware-k8s-1.21: VMware Kubernetes 1.21
-
-* [Model](src/vmware-k8s-1.22/mod.rs)
-* [Default settings](src/vmware-k8s-1.22/defaults.d/)
-
 ## vmware-k8s-1.22: VMware Kubernetes 1.22
 
 * [Model](src/vmware-k8s-1.22/mod.rs)
@@ -76,18 +91,28 @@ The `#[model]` attribute on Settings and its sub-structs reduces duplication and
 
 ## vmware-k8s-1.23: VMware Kubernetes 1.23
 
-* [Model](src/vmware-k8s-1.23/mod.rs)
-* [Default settings](src/vmware-k8s-1.23/defaults.d/)
+* [Model](src/vmware-k8s-1.26/mod.rs)
+* [Default settings](src/vmware-k8s-1.26/defaults.d/)
+
+## vmware-k8s-1.24: VMware Kubernetes 1.24
+
+* [Model](src/vmware-k8s-1.26/mod.rs)
+* [Default settings](src/vmware-k8s-1.26/defaults.d/)
+
+## vmware-k8s-1.25: VMware Kubernetes 1.25
+
+* [Model](src/vmware-k8s-1.26/mod.rs)
+* [Default settings](src/vmware-k8s-1.26/defaults.d/)
+
+## vmware-k8s-1.26: VMware Kubernetes 1.26
+
+* [Model](src/vmware-k8s-1.26/mod.rs)
+* [Default settings](src/vmware-k8s-1.26/defaults.d/)
 
 ## metal-dev: Metal development build
 
 * [Model](src/metal-dev/mod.rs)
 * [Default settings](src/metal-dev/defaults.d/)
-
-## metal-k8s-1.21: Metal Kubernetes 1.21
-
-* [Model](src/metal-k8s-1.23/mod.rs)
-* [Default settings](src/metal-k8s-1.22/defaults.d/)
 
 ## metal-k8s-1.22: Metal Kubernetes 1.22
 
@@ -96,8 +121,23 @@ The `#[model]` attribute on Settings and its sub-structs reduces duplication and
 
 ## metal-k8s-1.23: Metal Kubernetes 1.23
 
-* [Model](src/metal-k8s-1.23/mod.rs)
-* [Default settings](src/metal-k8s-1.23/defaults.d/)
+* [Model](src/metal-k8s-1.26/mod.rs)
+* [Default settings](src/metal-k8s-1.26/defaults.d/)
+
+## metal-k8s-1.24: Metal Kubernetes 1.24
+
+* [Model](src/metal-k8s-1.26/mod.rs)
+* [Default settings](src/metal-k8s-1.26/defaults.d/)
+
+## metal-k8s-1.25: Metal Kubernetes 1.25
+
+* [Model](src/metal-k8s-1.26/mod.rs)
+* [Default settings](src/metal-k8s-1.26/defaults.d/)
+
+## metal-k8s-1.26: Metal Kubernetes 1.26
+
+* [Model](src/metal-k8s-1.26/mod.rs)
+* [Default settings](src/metal-k8s-1.26/defaults.d/)
 
 # This directory
 
@@ -121,7 +161,7 @@ Note: all models share the same `Cargo.toml`.
 */
 
 // Clippy has a false positive in the presence of the Scalar macro.
-#![allow(clippy::derive_hash_xor_eq)]
+#![allow(clippy::derived_hash_with_manual_eq)]
 
 // "Modeled types" are types with special ser/de behavior used for validation.
 pub mod modeled_types;
@@ -150,13 +190,13 @@ use crate::de::{deserialize_mirrors, deserialize_node_taints};
 use crate::modeled_types::{
     BootConfigKey, BootConfigValue, BootstrapContainerMode, CpuManagerPolicy, CredentialProvider,
     DNSDomain, ECSAgentImagePullBehavior, ECSAgentLogLevel, ECSAttributeKey, ECSAttributeValue,
-    ECSDurationValue, EtcHostsEntries, FriendlyVersion, Identifier, ImageGCHighThresholdPercent,
-    ImageGCLowThresholdPercent, KmodKey, KubernetesAuthenticationMode, KubernetesBootstrapToken,
-    KubernetesCloudProvider, KubernetesClusterDnsIp, KubernetesClusterName,
-    KubernetesDurationValue, KubernetesEvictionHardKey, KubernetesLabelKey, KubernetesLabelValue,
-    KubernetesQuantityValue, KubernetesReservedResourceKey, KubernetesTaintValue,
-    KubernetesThresholdValue, Lockdown, PemCertificateString, SingleLineString, SysctlKey,
-    TopologyManagerPolicy, TopologyManagerScope, Url, ValidBase64, ValidLinuxHostname,
+    ECSDurationValue, EtcHostsEntries, FriendlyVersion, Identifier, IntegerPercent, KmodKey,
+    KubernetesAuthenticationMode, KubernetesBootstrapToken, KubernetesCloudProvider,
+    KubernetesClusterDnsIp, KubernetesClusterName, KubernetesDurationValue,
+    KubernetesEvictionHardKey, KubernetesLabelKey, KubernetesLabelValue, KubernetesQuantityValue,
+    KubernetesReservedResourceKey, KubernetesTaintValue, KubernetesThresholdValue, Lockdown,
+    OciDefaultsCapability, OciDefaultsResourceLimitType, PemCertificateString, SingleLineString,
+    SysctlKey, TopologyManagerPolicy, TopologyManagerScope, Url, ValidBase64, ValidLinuxHostname,
 };
 
 // Kubernetes static pod manifest settings
@@ -206,8 +246,8 @@ struct KubernetesSettings {
     topology_manager_scope: TopologyManagerScope,
     topology_manager_policy: TopologyManagerPolicy,
     pod_pids_limit: i64,
-    image_gc_high_threshold_percent: ImageGCHighThresholdPercent,
-    image_gc_low_threshold_percent: ImageGCLowThresholdPercent,
+    image_gc_high_threshold_percent: IntegerPercent,
+    image_gc_low_threshold_percent: IntegerPercent,
     provider_id: Url,
     log_level: u8,
     credential_providers: HashMap<Identifier, CredentialProvider>,
@@ -442,4 +482,18 @@ struct PemCertificate {
 #[model]
 struct OciHooks {
     log4j_hotpatch_enabled: bool,
+}
+
+///// OCI defaults specifies the default values that will be used in cri-base-json.
+#[model]
+struct OciDefaults {
+    capabilities: HashMap<OciDefaultsCapability, bool>,
+    resource_limits: HashMap<OciDefaultsResourceLimitType, OciDefaultsResourceLimit>,
+}
+
+///// The hard and soft limit values for an OCI defaults resource limit.
+#[model(add_option = false)]
+struct OciDefaultsResourceLimit {
+    hard_limit: u32,
+    soft_limit: u32,
 }

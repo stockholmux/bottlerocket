@@ -1,7 +1,7 @@
 [package]
 name = "kernel-5_10"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 publish = false
 build = "build.rs"
 
@@ -14,8 +14,8 @@ path = "pkg.rs"
 
 [[package.metadata.build-package.external-files]]
 # Use latest-srpm-url.sh to get this.
-url = "https://cdn.amazonlinux.com/blobstore/5ae72bc0cd79c8b003ee349c75c2f23292306528a387d4fba338d0627a7f0d4f/kernel-5.10.135-122.509.amzn2.src.rpm"
-sha512 = "2c76a56b784355dcca30f06bd343f067691d97e09fbf80bb071a79e874f05a4dd75e3e2431aed0351fc9b4845a6b6310121828127166a3bc5d15fd9bdb5c7336"
+url = "https://cdn.amazonlinux.com/blobstore/bfdedd54405ee75070fa9b53342399680e3145e362f41deb1276de2082625061/kernel-5.10.173-154.642.amzn2.src.rpm"
+sha512 = "b98f97a00dfbec2ba6681faa326782bbe02c8a57758890076f71bb07a149d6dee3dba1237c07fb195c6a65956bee572f0d8757898375f437244eec7e69938e0b"
 
 [build-dependencies]
 microcode = { path = "../microcode" }

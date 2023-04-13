@@ -27,7 +27,8 @@ pub mod error {
         APIRequest {
             method: String,
             uri: String,
-            source: apiclient::Error,
+            #[snafu(source(from(apiclient::Error, Box::new)))]
+            source: Box<apiclient::Error>,
         },
 
         #[snafu(display("Error {} when {}ing to {}: {}", code, method, uri, response_body))]
@@ -138,6 +139,7 @@ pub fn build_template_registry() -> Result<handlebars::Handlebars<'static>> {
     template_registry.register_helper("localhost_aliases", Box::new(helpers::localhost_aliases));
     template_registry.register_helper("etc_hosts_entries", Box::new(helpers::etc_hosts_entries));
     template_registry.register_helper("any_enabled", Box::new(helpers::any_enabled));
+    template_registry.register_helper("oci_defaults", Box::new(helpers::oci_defaults));
 
     Ok(template_registry)
 }

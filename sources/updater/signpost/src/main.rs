@@ -1,4 +1,3 @@
-#![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
 
 use serde::Deserialize;
@@ -14,6 +13,7 @@ enum Command {
     UpgradeToInactive,
     CancelUpgrade,
     RollbackToInactive,
+    HasBootEverSucceeded,
     RewriteTable,
 }
 
@@ -30,6 +30,7 @@ SUBCOMMANDS:
     upgrade-to-inactive     Sets the inactive partitions as new upgrade partitions if marked valid
     cancel-upgrade          Reverse upgrade-to-inactive
     rollback-to-inactive    Deprioritizes the inactive partitions
+    has-boot-ever-succeeded Checks whether boot has ever succeeded
     rewrite-table           Rewrite the partition table with no changes to disk (used for testing this code)");
     std::process::exit(1)
 }
@@ -40,7 +41,7 @@ fn main() {
 
     if let Err(err) = State::load().and_then(|mut state| {
         match command {
-            Command::Status => println!("{}", state),
+            Command::Status => println!("{state}"),
             Command::ClearInactive => {
                 state.clear_inactive();
                 state.write()?;
@@ -65,11 +66,16 @@ fn main() {
                 state.rollback_to_inactive()?;
                 state.write()?;
             }
+            Command::HasBootEverSucceeded => {
+                if state.has_boot_succeeded() {
+                    println!("true");
+                }
+            }
             Command::RewriteTable => state.write()?,
         }
         Ok(())
     }) {
-        eprintln!("{}", err);
+        eprintln!("{err}");
         std::process::exit(1)
     }
 }

@@ -13,8 +13,6 @@ If the returned value is "baz", our generated value will be "foo-baz".
 (The name "schnauzer" comes from the fact that Schnauzers are search and rescue dogs (similar to this search and replace task) and because they have mustaches.)
 */
 
-#![deny(rust_2018_idioms)]
-
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::string::String;
@@ -34,7 +32,8 @@ mod error {
         APIRequest {
             method: String,
             uri: String,
-            source: apiclient::Error,
+            #[snafu(source(from(apiclient::Error, Box::new)))]
+            source: Box<apiclient::Error>,
         },
 
         #[snafu(display("Error {} when {}ing to '{}': {}", code, method, uri, response_body))]
@@ -79,7 +78,8 @@ mod error {
         RenderTemplate {
             setting_name: String,
             template: String,
-            source: handlebars::RenderError,
+            #[snafu(source(from(handlebars::RenderError, Box::new)))]
+            source: Box<handlebars::RenderError>,
         },
     }
 }
