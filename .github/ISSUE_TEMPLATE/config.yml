@@ -3,3 +3,5 @@ contact_links:
   - name: Bottlerocket Community Form
     url: https://github.com/bottlerocket-os/bottlerocket/discussions
     about: Please ask and answer questions here.
+    attributes:
+      label: foobar
